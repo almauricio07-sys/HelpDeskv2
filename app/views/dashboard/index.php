@@ -32,13 +32,11 @@ $flashError   = $_SESSION['flash_error']   ?? null;
 unset($_SESSION['flash_success'], $_SESSION['flash_error']);
 ?>
 
-<!-- ═══ BREADCRUMB ════════════════════════════════════════════════════════════ -->
 <div class="hd-breadcrumb">
     <i class="bi bi-house-fill"></i>
     <span>Dashboard</span>
 </div>
 
-<!-- ═══ FLASH MESSAGES ═══════════════════════════════════════════════════════ -->
 <?php if ($flashSuccess): ?>
     <div class="alert alert-success alert-dismissible d-flex align-items-center gap-2 mb-4 fade-in-up" role="alert">
         <i class="bi bi-check-circle-fill"></i>
@@ -54,7 +52,6 @@ unset($_SESSION['flash_success'], $_SESSION['flash_error']);
     </div>
 <?php endif; ?>
 
-<!-- ═══ SALUDO ════════════════════════════════════════════════════════════════ -->
 <div class="mb-4 fade-in-up">
     <h1 class="h4 mb-1">
         <?php
@@ -74,7 +71,6 @@ unset($_SESSION['flash_success'], $_SESSION['flash_error']);
        ═══════════════════════════════════════════════════════════════════ */
 if ($rolId == 1): ?>
 
-    <!-- STAT CARDS -->
     <div class="row g-3 mb-4">
         <div class="col-6 col-md-3 fade-in-up delay-1">
             <div class="stat-card">
@@ -114,24 +110,21 @@ if ($rolId == 1): ?>
         </div>
     </div>
 
-    <!-- GRÁFICAS -->
     <div class="row g-3 mb-4">
-        <!-- Gráfica: Tickets por Estatus (Doughnut) -->
         <div class="col-md-5 fade-in-up delay-1">
             <div class="hd-card h-100">
                 <div class="hd-card-header">
                     <h2 class="hd-card-title">
                         <i class="bi bi-pie-chart-fill text-accent"></i>
-                        Tickets por Estatus
+                        Activos vs Cerrados
                     </h2>
                 </div>
                 <div class="hd-card-body chart-container" style="min-height:260px; display:flex; align-items:center; justify-content:center;">
-                    <canvas id="chartEstatus" style="max-height:240px;"></canvas>
+                    <canvas id="chartActivosCerrados" style="max-height:240px;"></canvas>
                 </div>
             </div>
         </div>
 
-        <!-- Gráfica: Tickets por Técnico (Bar) -->
         <div class="col-md-7 fade-in-up delay-2">
             <div class="hd-card h-100">
                 <div class="hd-card-header">
@@ -141,13 +134,12 @@ if ($rolId == 1): ?>
                     </h2>
                 </div>
                 <div class="hd-card-body chart-container" style="min-height:260px;">
-                    <canvas id="chartTecnicos" style="max-height:240px;"></canvas>
+                    <canvas id="chartTicketsUsuario" style="max-height:240px;"></canvas>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- ÚLTIMOS TICKETS -->
     <div class="hd-card fade-in-up">
         <div class="hd-card-header">
             <h2 class="hd-card-title">
@@ -198,10 +190,15 @@ if ($rolId == 1): ?>
                                         <?= date('d/m/Y H:i', strtotime($t['fecha_creacion'])) ?>
                                     </td>
                                     <td>
-                                        <a href="<?= BASE_URL ?>/index.php?controller=Ticket&action=show&id=<?= $t['id'] ?>"
-                                           class="btn btn-outline-secondary btn-sm">
-                                            <i class="bi bi-eye"></i>
-                                        </a>
+                                        <div class="d-flex gap-2">
+                                            <a href="<?= BASE_URL ?>/index.php?controller=Ticket&action=show&id=<?= $t['id'] ?>"
+                                               class="btn btn-action-edit btn-sm" title="Ver / Editar">
+                                                <i class="bi bi-pencil-fill"></i>
+                                            </a>
+                                            <button type="button" class="btn btn-action-delete btn-sm" title="Eliminar">
+                                                <i class="bi bi-trash-fill"></i>
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -217,11 +214,14 @@ if ($rolId == 1): ?>
        ═══════════════════════════════════════════════════════════════════ */
 elseif ($rolId == 2): ?>
 
-    <!-- STAT CARDS TÉCNICO -->
     <div class="row g-3 mb-4">
         <?php
         $miTotal   = count($misTickets);
-        $miActivos = count(array_filter($misTickets, fn($t) => strtolower($t['estatus']) !== 'cerrado'));
+        
+        // ─── MAGIA AQUÍ: Filtramos solo los tickets que NO están cerrados ───
+        $misTicketsActivos = array_filter($misTickets, fn($t) => strtolower($t['estatus']) !== 'cerrado');
+        
+        $miActivos = count($misTicketsActivos);
         $miCerrad  = $miTotal - $miActivos;
         ?>
         <div class="col-6 col-md-4 fade-in-up delay-1">
@@ -229,7 +229,7 @@ elseif ($rolId == 2): ?>
                 <div class="stat-icon blue"><i class="bi bi-ticket-perforated-fill"></i></div>
                 <div>
                     <div class="stat-value"><?= $miTotal ?></div>
-                    <div class="stat-label">Mis Tickets</div>
+                    <div class="stat-label">Histórico Total</div>
                 </div>
             </div>
         </div>
@@ -238,7 +238,7 @@ elseif ($rolId == 2): ?>
                 <div class="stat-icon amber"><i class="bi bi-clock-history"></i></div>
                 <div>
                     <div class="stat-value"><?= $miActivos ?></div>
-                    <div class="stat-label">Activos</div>
+                    <div class="stat-label">Por Atender</div>
                 </div>
             </div>
         </div>
@@ -253,22 +253,21 @@ elseif ($rolId == 2): ?>
         </div>
     </div>
 
-    <!-- LISTA DE TICKETS DEL TÉCNICO -->
     <div class="hd-card fade-in-up">
         <div class="hd-card-header">
             <h2 class="hd-card-title">
                 <i class="bi bi-person-lines-fill text-accent"></i>
-                Mis Folios Recientes
+                Mis Folios Pendientes de Atención
             </h2>
             <a href="<?= BASE_URL ?>/index.php?controller=Ticket&action=misTickets" class="btn btn-outline-primary btn-sm">
-                <i class="bi bi-list-ul"></i> Ver todos
+                <i class="bi bi-list-ul"></i> Ver histórico
             </a>
         </div>
         <div class="hd-card-body p-0">
-            <?php if (empty($misTickets)): ?>
+            <?php if (empty($misTicketsActivos)): ?>
                 <div class="empty-state">
-                    <i class="bi bi-inbox d-block"></i>
-                    <p>No tienes tickets asignados en este momento.</p>
+                    <i class="bi bi-emoji-smile d-block text-success mb-2" style="font-size: 2rem;"></i>
+                    <p>¡Excelente! No tienes tickets pendientes de atención en este momento.</p>
                 </div>
             <?php else: ?>
                 <div class="hd-table-wrapper" style="border:none; border-radius:0;">
@@ -284,7 +283,7 @@ elseif ($rolId == 2): ?>
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach (array_slice($misTickets, 0, 6) as $t): ?>
+                            <?php foreach (array_slice($misTicketsActivos, 0, 6) as $t): ?>
                                 <tr>
                                     <td><span class="folio-tag"><?= htmlspecialchars($t['folio']) ?></span></td>
                                     <td><?= htmlspecialchars($t['solicitante']) ?></td>
@@ -303,8 +302,8 @@ elseif ($rolId == 2): ?>
                                     </td>
                                     <td>
                                         <a href="<?= BASE_URL ?>/index.php?controller=Ticket&action=show&id=<?= $t['id'] ?>"
-                                           class="btn btn-outline-secondary btn-sm">
-                                            <i class="bi bi-eye"></i>
+                                           class="btn btn-action-edit btn-sm" title="Atender">
+                                            <i class="bi bi-wrench-adjustable"></i>
                                         </a>
                                     </td>
                                 </tr>
@@ -321,7 +320,6 @@ elseif ($rolId == 2): ?>
        ═══════════════════════════════════════════════════════════════════ */
 else: ?>
 
-    <!-- STAT CARDS MESA -->
     <div class="row g-3 mb-4">
         <div class="col-6 col-md-4 fade-in-up delay-1">
             <div class="stat-card">
@@ -352,7 +350,6 @@ else: ?>
         </div>
     </div>
 
-    <!-- ACCIONES RÁPIDAS -->
     <div class="row g-3 mb-4 fade-in-up delay-2">
         <div class="col-12 col-md-6">
             <a href="<?= BASE_URL ?>/index.php?controller=Ticket&action=create"
@@ -378,7 +375,6 @@ else: ?>
         </div>
     </div>
 
-    <!-- ÚLTIMOS TICKETS -->
     <div class="hd-card fade-in-up">
         <div class="hd-card-header">
             <h2 class="hd-card-title">
@@ -425,8 +421,8 @@ else: ?>
                                     </td>
                                     <td>
                                         <a href="<?= BASE_URL ?>/index.php?controller=Ticket&action=show&id=<?= $t['id'] ?>"
-                                           class="btn btn-outline-secondary btn-sm">
-                                            <i class="bi bi-eye"></i>
+                                           class="btn btn-action-edit btn-sm" title="Ver / Editar">
+                                            <i class="bi bi-pencil-fill"></i>
                                         </a>
                                     </td>
                                 </tr>
@@ -441,41 +437,40 @@ else: ?>
 <?php endif; ?>
 
 <?php /* ─── Chart.js solo para Coordinador ─────────────────────────────────── */
-if ($rolId == 1): ?>
-    <?php
-    // Preparar datos JSON para JS
-    $labelsEstatus = array_column($porEstatus, 'nombre_estatus');
-    $dataEstatus   = array_column($porEstatus, 'total');
-    $labelsTecnico = array_column($porTecnico, 'tecnico');
-    $dataTecnico   = array_column($porTecnico, 'total');
-    ?>
-    <?php $extraJs = <<<JS
+if ($rolId == 1): 
+    // Utilizamos ob_start() para inyectar correctamente PHP en el JS sin que se rompa el layout
+    ob_start();
+?>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-    (function () {
-        const chartDefaults = {
-            color: '#9ca3af',
-            borderColor: 'rgba(255,255,255,0.08)',
-        };
-        Chart.defaults.color = chartDefaults.color;
-        Chart.defaults.borderColor = chartDefaults.borderColor;
+    document.addEventListener('DOMContentLoaded', function() {
+        // Configuraciones globales para el Midnight Slate Dark Mode
+        Chart.defaults.color = '#8b949e'; 
+        Chart.defaults.borderColor = 'rgba(139, 148, 158, 0.1)';
+        Chart.defaults.font.family = "'Inter', system-ui, -apple-system, sans-serif";
 
-        // ── Gráfica Doughnut: Estatus ──────────────────────────────────
-        const ctxE = document.getElementById('chartEstatus');
+        // ─── Variables inyectadas desde PHP (Controlador) ───
+        const dataAC = <?= $chartData1 ?? '{"activos":0,"cerrados":0}' ?>;
+        const dataTU = <?= $chartData2 ?? '[]' ?>;
+
+        // ─── 1. Gráfica RF_14: Activos vs Cerrados (Doughnut) ───
+        const ctxE = document.getElementById('chartActivosCerrados');
         if (ctxE) {
-            new Chart(ctxE, {
+            new Chart(ctxE.getContext('2d'), {
                 type: 'doughnut',
                 data: {
-                    labels: <?= json_encode($labelsEstatus) ?>,
+                    labels: ['Activos', 'Cerrados'],
                     datasets: [{
-                        data: <?= json_encode($dataEstatus) ?>,
-                        backgroundColor: ['#3b82f6','#f59e0b','#10b981','#ef4444'],
-                        borderColor: '#141414',
+                        data: [dataAC.activos, dataAC.cerrados],
+                        backgroundColor: ['#d29922', '#238636'], // Ocre/Amarillo y Verde Mate
+                        borderColor: '#161b22', // Color de la tarjeta de fondo (Midnight Slate)
                         borderWidth: 3,
-                        hoverOffset: 8,
+                        hoverOffset: 6
                     }]
                 },
                 options: {
                     responsive: true,
+                    maintainAspectRatio: false,
                     cutout: '70%',
                     plugins: {
                         legend: {
@@ -492,33 +487,34 @@ if ($rolId == 1): ?>
             });
         }
 
-        // ── Gráfica Bar: Técnicos ──────────────────────────────────────
-        const ctxT = document.getElementById('chartTecnicos');
+        // ─── 2. Gráfica RF_15: Tickets por Técnico (Bar) ───
+        const nombresTecnicos = dataTU.map(item => item.tecnico);
+        const totalesTecnicos = dataTU.map(item => item.total);
+
+        const ctxT = document.getElementById('chartTicketsUsuario');
         if (ctxT) {
-            new Chart(ctxT, {
+            new Chart(ctxT.getContext('2d'), {
                 type: 'bar',
                 data: {
-                    labels: <?= json_encode($labelsTecnico) ?>,
+                    labels: nombresTecnicos.length > 0 ? nombresTecnicos : ['Sin asignar'],
                     datasets: [{
-                        label: 'Tickets',
-                        data: <?= json_encode($dataTecnico) ?>,
-                        backgroundColor: 'rgba(13, 110, 253, 0.6)',
-                        borderColor: '#0d6efd',
-                        borderWidth: 2,
-                        borderRadius: 6,
-                        borderSkipped: false,
+                        label: 'Tickets Asignados',
+                        data: totalesTecnicos.length > 0 ? totalesTecnicos : [0],
+                        backgroundColor: '#2f81f7', // Azul Accent de nuestro CSS
+                        borderRadius: 4,
+                        barPercentage: 0.6
                     }]
                 },
                 options: {
                     responsive: true,
-                    plugins: {
-                        legend: { display: false },
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { display: false } 
                     },
                     scales: {
                         y: {
                             beginAtZero: true,
-                            ticks: { stepSize: 1 },
-                            grid: { color: 'rgba(255,255,255,0.05)' }
+                            ticks: { stepSize: 1 }
                         },
                         x: {
                             grid: { display: false }
@@ -527,10 +523,12 @@ if ($rolId == 1): ?>
                 }
             });
         }
-    })();
+    });
     </script>
-JS;
-    ?>
-<?php endif; ?>
+<?php 
+    // Capturamos el script y lo asignamos a extraJs para que el footer lo imprima abajo del todo
+    $extraJs = ob_get_clean(); 
+endif; 
+?>
 
 <?php require BASE_PATH . '/app/views/layouts/footer.php'; ?>

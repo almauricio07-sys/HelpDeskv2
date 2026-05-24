@@ -3,29 +3,35 @@
    Hoja de estilos principal - Dark Mode Absoluto
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ─── Variables CSS ─────────────────────────────────────────────────────────── */
+/* ─── Variables CSS (Midnight Slate - Sin blancos puros) ──────────────────── */
 :root {
-  --bg-page:       #0a0a0a;
-  --bg-card:       #141414;
-  --bg-card-hover: #1c1c1c;
-  --bg-input:      #1e1e1e;
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-active: rgba(255, 255, 255, 0.18);
-  --accent:        #0d6efd;
-  --accent-hover:  #0b5ed7;
-  --accent-glow:   rgba(13, 110, 253, 0.25);
-  --text-primary:  #f0f0f0;
-  --text-secondary:#9ca3af;
-  --text-muted:    #6b7280;
-  --success:       #10b981;
-  --warning:       #f59e0b;
-  --danger:        #ef4444;
+  --bg-page:       #0d1117; /* Fondo general tipo GitHub Dark (más suave que el negro) */
+  --bg-card:       #161b22; /* Fondo de tarjetas */
+  --bg-card-hover: #1c2128;
+  --bg-input:      #0d1117;
+  
+  --border-subtle: rgba(139, 148, 158, 0.15); /* Bordes grises, no blancos */
+  --border-active: rgba(139, 148, 158, 0.3);
+  
+  --accent:        #2f81f7; /* Azul más vibrante pero sin deslumbrar */
+  --accent-hover:  #388bfd;
+  --accent-glow:   rgba(47, 129, 247, 0.2);
+  
+  /* Aquí matamos el blanco puro */
+  --text-primary:  #c9d1d9; /* Gris perla muy suave para los textos principales */
+  --text-secondary:#8b949e; /* Gris azulado para textos secundarios */
+  --text-muted:    #6e7681; /* Gris oscuro para placeholders y detalles */
+  
+  --success:       #238636; /* Verde mate */
+  --warning:       #d29922; /* Ocre mate */
+  --danger:        #da3633; /* Rojo mate */
   --info:          #3b82f6;
+  
   --radius-sm:     6px;
   --radius-md:     10px;
   --radius-lg:     16px;
-  --shadow-card:   0 4px 24px rgba(0, 0, 0, 0.5);
-  --shadow-glow:   0 0 20px rgba(13, 110, 253, 0.15);
+  --shadow-card:   0 4px 24px rgba(0, 0, 0, 0.3);
+  --shadow-glow:   0 0 20px rgba(47, 129, 247, 0.1);
   --transition:    all 0.2s ease;
   --font-main:     'Inter', system-ui, -apple-system, sans-serif;
 }
@@ -373,73 +379,93 @@ textarea.form-control { resize: vertical; min-height: 100px; }
   font-size: 0.78rem !important;
 }
 
-/* ─── Tablas ────────────────────────────────────────────────────────────────── */
+/* ─── Tablas (Forzar modo oscuro sobre Bootstrap) ───────────────────────── */
 .hd-table-wrapper {
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
+  border: none !important;
+  border-radius: var(--radius-md) !important;
   overflow: hidden;
+  background-color: var(--bg-card) !important; /* Fondo oscuro base */
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
 .table {
+  --bs-table-bg: transparent !important; /* Mata el blanco de Bootstrap */
+  background-color: transparent !important;
   color: var(--text-primary) !important;
   margin-bottom: 0 !important;
   font-size: 0.855rem;
 }
 
+/* Forzamos a que celdas y filas no tengan fondos blancos heredados */
+.table > :not(caption) > * > * {
+  background-color: transparent !important;
+  color: var(--text-primary) !important;
+  border-bottom-color: var(--border-subtle) !important;
+}
+
+/* El encabezado Ocre vibrante que habíamos puesto */
 .table thead th {
-  background-color: rgba(255, 255, 255, 0.03) !important;
-  color: var(--text-muted) !important;
-  font-size: 0.75rem !important;
-  font-weight: 600 !important;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  border-color: var(--border-subtle) !important;
-  padding: 0.7rem 1rem !important;
+  background-color: #cfa832 !important; 
+  color: #1a1a1a !important; 
+  font-size: 0.85rem !important;
+  font-weight: 700 !important;
+  text-transform: capitalize !important;
+  letter-spacing: 0.02em;
+  border: none !important;
+  padding: 1rem 1.2rem !important;
   white-space: nowrap;
 }
 
 .table tbody tr {
-  border-color: var(--border-subtle) !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
   transition: var(--transition);
 }
 
 .table tbody tr:hover {
-  background-color: rgba(255, 255, 255, 0.03) !important;
+  background-color: rgba(255, 255, 255, 0.03) !important; /* Un hover muy sutil */
 }
 
 .table tbody td {
-  padding: 0.7rem 1rem !important;
+  padding: 0.85rem 1.2rem !important;
   vertical-align: middle;
-  border-color: var(--border-subtle) !important;
-  color: var(--text-primary) !important;
+  border: none !important;
 }
 
-.table-dark,
-.table-striped > tbody > tr:nth-of-type(odd) {
-  background-color: transparent !important;
+/* Botones de acción (inspirados en el mockup) */
+.btn-action-edit {
+  background-color: #f59e0b !important;
+  color: #111 !important;
+  border: none !important;
 }
+.btn-action-edit:hover { background-color: #d97706 !important; }
 
-/* ─── Badges / Etiquetas ────────────────────────────────────────────────────── */
+.btn-action-delete {
+  background-color: #8b5cf6 !important;
+  color: #fff !important;
+  border: none !important;
+}
+.btn-action-delete:hover { background-color: #7c3aed !important; }
+
+/* ─── Badges / Etiquetas (Colores sólidos y vibrantes) ────────────────────── */
 .hd-badge {
   font-size: 0.72rem;
   font-weight: 600;
-  padding: 0.28rem 0.6rem;
+  padding: 0.35rem 0.75rem;
   border-radius: 20px;
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
   letter-spacing: 0.02em;
+  border: none !important; /* Quitamos bordes para estilo flat */
 }
 
-.badge-abierto    { background: rgba(59, 130, 246, 0.15);  color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3);  }
-.badge-proceso    { background: rgba(245, 158, 11, 0.15);  color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3);  }
-.badge-cerrado    { background: rgba(16, 185, 129, 0.15);  color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3);  }
-.badge-pendiente  { background: rgba(239, 68, 68, 0.15);   color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);   }
-.badge-alta       { background: rgba(239, 68, 68, 0.15);   color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);   }
-.badge-media      { background: rgba(245, 158, 11, 0.15);  color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3);  }
-.badge-baja       { background: rgba(16, 185, 129, 0.15);  color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3);  }
-.badge-activo     { background: rgba(16, 185, 129, 0.15);  color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3);  }
-.badge-inactivo   { background: rgba(107, 114, 128, 0.15); color: #9ca3af; border: 1px solid rgba(107, 114, 128, 0.3); }
+.badge-abierto    { background: #ea580c !important; color: #fff !important; } /* Naranja */
+.badge-proceso    { background: #7c3aed !important; color: #fff !important; } /* Morado (Asignado) */
+.badge-cerrado    { background: #059669 !important; color: #fff !important; } /* Verde oscuro */
+.badge-pendiente  { background: #ca8a04 !important; color: #fff !important; } /* Amarillo (En espera) */
+.badge-alta       { background: #dc2626 !important; color: #fff !important; } /* Rojo */
+.badge-media      { background: #d97706 !important; color: #fff !important; } /* Naranja/Amarillo */
+.badge-baja       { background: #059669 !important; color: #fff !important; } /* Verde */
 
 /* ─── Alertas del sistema ───────────────────────────────────────────────────── */
 .alert {

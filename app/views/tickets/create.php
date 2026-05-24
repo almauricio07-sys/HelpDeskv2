@@ -8,7 +8,6 @@
 require BASE_PATH . '/app/views/layouts/header.php';
 ?>
 
-<!-- Breadcrumb -->
 <div class="hd-breadcrumb fade-in-up">
     <a href="<?= BASE_URL ?>/index.php?controller=Dashboard&action=index"><i class="bi bi-house-fill"></i></a>
     <i class="bi bi-chevron-right" style="font-size:.7rem;"></i>
@@ -23,11 +22,10 @@ require BASE_PATH . '/app/views/layouts/header.php';
     </div>
     <div>
         <h1 class="h4 mb-0">Registrar Nuevo Ticket</h1>
-        <p class="mb-0" style="font-size:0.82rem;">El folio se generará automáticamente al guardar</p>
+        <p class="mb-0" style="font-size:0.82rem; color: var(--text-secondary);">El folio se generará automáticamente al guardar</p>
     </div>
 </div>
 
-<!-- ═══ ERRORES ═══════════════════════════════════════════════════════════════ -->
 <?php if (!empty($errors)): ?>
     <div class="alert alert-danger d-flex align-items-start gap-2 mb-4 fade-in-up" role="alert">
         <i class="bi bi-exclamation-triangle-fill flex-shrink-0 mt-1"></i>
@@ -42,12 +40,10 @@ require BASE_PATH . '/app/views/layouts/header.php';
     </div>
 <?php endif; ?>
 
-<!-- ═══ FORMULARIO ════════════════════════════════════════════════════════════ -->
 <form method="POST" action="<?= BASE_URL ?>/index.php?controller=Ticket&action=store" id="formTicket" novalidate>
 
     <div class="row g-4">
 
-        <!-- ── Columna izquierda: Datos del Solicitante ──────────────── -->
         <div class="col-12 col-lg-5 fade-in-up delay-1">
             <div class="hd-card h-100">
                 <div class="hd-card-header">
@@ -56,7 +52,7 @@ require BASE_PATH . '/app/views/layouts/header.php';
                         Datos del Solicitante
                     </h2>
                     <span class="hd-badge badge-abierto">
-                        <i class="bi bi-info-circle"></i> Si ya existe, se omite
+                        <i class="bi bi-magic"></i> Autocompletado activo
                     </span>
                 </div>
                 <div class="hd-card-body">
@@ -70,20 +66,20 @@ require BASE_PATH . '/app/views/layouts/header.php';
                             <input type="text" class="form-control" id="clave_reportante"
                                    name="clave_reportante" placeholder="Ej: EMP-0042"
                                    value="<?= htmlspecialchars($_POST['clave_reportante'] ?? '') ?>"
-                                   required>
+                                   required autocomplete="off">
                         </div>
-                        <div class="form-text" style="font-size:0.75rem; color:var(--text-muted);">
-                            Si el solicitante ya existe en el sistema, sus datos se reutilizarán.
+                        <div class="form-text mt-2" style="font-size:0.75rem; color:var(--text-muted);">
+                            <i class="bi bi-info-circle"></i> Escribe la clave y haz clic fuera del campo. Si el solicitante ya existe, el sistema llenará los datos por ti.
                         </div>
                     </div>
 
                     <div class="mb-3">
-                        <label for="nombre_solicitante" class="form-label">
+                        <label for="nombre_completo" class="form-label">
                             Nombre Completo <span style="color:var(--danger);">*</span>
                         </label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-person"></i></span>
-                            <input type="text" class="form-control" id="nombre_solicitante"
+                            <input type="text" class="form-control" id="nombre_completo"
                                    name="nombre_solicitante" placeholder="Nombre y apellidos"
                                    value="<?= htmlspecialchars($_POST['nombre_solicitante'] ?? '') ?>"
                                    required>
@@ -122,7 +118,6 @@ require BASE_PATH . '/app/views/layouts/header.php';
             </div>
         </div>
 
-        <!-- ── Columna derecha: Datos del Ticket ──────────────────────── -->
         <div class="col-12 col-lg-7 fade-in-up delay-2">
             <div class="hd-card h-100">
                 <div class="hd-card-header">
@@ -197,10 +192,7 @@ require BASE_PATH . '/app/views/layouts/header.php';
             </div>
         </div>
 
-    </div><!-- /row -->
-
-    <!-- ── Barra de acciones ─────────────────────────────────────────────── -->
-    <div class="d-flex justify-content-end gap-2 mt-4 fade-in-up delay-3">
+    </div><div class="d-flex justify-content-end gap-2 mt-4 fade-in-up delay-3">
         <a href="<?= BASE_URL ?>/index.php?controller=Ticket&action=index"
            class="btn btn-outline-secondary">
             <i class="bi bi-x-circle"></i> Cancelar
@@ -212,38 +204,96 @@ require BASE_PATH . '/app/views/layouts/header.php';
 
 </form>
 
+<?php 
+// Inyectamos los scripts en el footer usando ob_start() para no romper la vista
+ob_start(); 
+?>
 <script>
-// Contador de caracteres para descripción
-const descTA = document.getElementById('descripcion');
-const charCount = document.getElementById('charCount');
-if (descTA) {
-    descTA.addEventListener('input', () => {
+document.addEventListener('DOMContentLoaded', function() {
+    // ─── Contador de caracteres para descripción ───
+    const descTA = document.getElementById('descripcion');
+    const charCount = document.getElementById('charCount');
+    if (descTA) {
+        descTA.addEventListener('input', () => {
+            charCount.textContent = descTA.value.length + ' caracteres';
+        });
         charCount.textContent = descTA.value.length + ' caracteres';
-    });
-    charCount.textContent = descTA.value.length + ' caracteres';
-}
+    }
 
-// Selección visual de prioridad
-document.querySelectorAll('.prioridad-radio').forEach(radio => {
-    radio.addEventListener('change', function () {
-        document.querySelectorAll('.prioridad-label').forEach(l => l.classList.remove('selected-prio'));
-        this.closest('label').querySelector('.prioridad-label').classList.add('selected-prio');
+    // ─── Selección visual de prioridad ───
+    document.querySelectorAll('.prioridad-radio').forEach(radio => {
+        radio.addEventListener('change', function () {
+            document.querySelectorAll('.prioridad-label').forEach(l => l.classList.remove('selected-prio'));
+            this.closest('label').querySelector('.prioridad-label').classList.add('selected-prio');
+        });
     });
-});
 
-// Efecto carga al enviar
-document.getElementById('formTicket').addEventListener('submit', function () {
-    const btn = document.getElementById('btnGuardar');
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Guardando...';
-    btn.disabled = true;
+    // ─── Efecto de carga al enviar el formulario ───
+    document.getElementById('formTicket').addEventListener('submit', function () {
+        const btn = document.getElementById('btnGuardar');
+        // Validamos si el formulario HTML5 es válido antes de bloquear el botón
+        if(this.checkValidity()) {
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Guardando...';
+            btn.disabled = true;
+        }
+    });
+
+    // ─── Magia AJAX: Autocompletado del Solicitante ───
+    const inputClave = document.getElementById('clave_reportante');
+    const inputNombre = document.getElementById('nombre_completo');
+    const inputCorreo = document.getElementById('correo');
+    const selectDepto = document.getElementById('id_departamento');
+
+    if (inputClave) {
+        inputClave.addEventListener('blur', function() {
+            const clave = this.value.trim();
+            if (clave === '') {
+                inputClave.classList.remove('is-valid');
+                return;
+            }
+
+            // URL del endpoint JSON que añadimos en TicketController
+            const url = `<?= BASE_URL ?>/index.php?controller=Ticket&action=buscarSolicitanteJson&clave=${encodeURIComponent(clave)}`;
+
+            // Indicador visual de que estamos buscando
+            inputClave.style.opacity = '0.7';
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    inputClave.style.opacity = '1'; // Restaurar opacidad
+                    if (data.existe) {
+                        // ¡Bingo! Llenar datos
+                        inputNombre.value = data.nombre_completo;
+                        inputCorreo.value = data.correo;
+                        selectDepto.value = data.id_departamento;
+
+                        // Efecto de Bootstrap
+                        inputClave.classList.remove('is-invalid');
+                        inputClave.classList.add('is-valid');
+                    } else {
+                        // Usuario nuevo: limpiar campos y quitar borde verde
+                        inputNombre.value = '';
+                        inputCorreo.value = '';
+                        selectDepto.value = '';
+                        inputClave.classList.remove('is-valid');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error al consultar el reportante:', error);
+                    inputClave.style.opacity = '1';
+                });
+        });
+    }
 });
 </script>
-
 <style>
 .selected-prio {
-    box-shadow: 0 0 0 2px rgba(255,255,255,0.2);
+    box-shadow: 0 0 0 2px var(--bg-page), 0 0 0 4px rgba(255,255,255,0.2) !important;
     transform: translateY(-2px);
 }
 </style>
-
-<?php require BASE_PATH . '/app/views/layouts/footer.php'; ?>
+<?php 
+$extraJs = ob_get_clean(); 
+require BASE_PATH . '/app/views/layouts/footer.php'; 
+?>

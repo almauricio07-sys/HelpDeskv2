@@ -299,6 +299,23 @@ function mapBadge(string $val, string $tipo): string {
                 </div>
             </div>
         <?php endif; ?>
+        <?php if ($_SESSION['rol_id'] == 2 && $ticket['id_estatus'] == 2): ?>
+            <div class="hd-card mb-4 border-success">
+                <div class="hd-card-header"><h3>Finalizar y Validar</h3></div>
+                <div class="hd-card-body">
+                    <form action="<?= BASE_URL ?>/index.php?controller=Ticket&action=show&id=<?= $ticket['id'] ?>" method="POST">
+                        <input type="hidden" name="accion" value="asignar_a_mesa">
+                        <select name="id_mesa" class="form-select" required>
+                            <option value="">Selecciona quién validará:</option>
+                            <?php foreach ($personalMesa as $m): ?>
+                                <option value="<?= $m['id'] ?>"><?= htmlspecialchars($m['nombre_completo']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <button type="submit" class="btn btn-success w-100 mt-2">Enviar a Validación</button>
+                    </form>
+                </div>
+            </div>
+        <?php endif; ?>
 
         <!-- Info del Técnico (visualización) -->
         <div class="hd-card fade-in-up delay-4">

@@ -177,10 +177,18 @@ function badgePrioridadIdx(string $p): string {
                                         <span style="font-size:0.72rem;"><?= date('H:i', strtotime($t['fecha_creacion'])) ?></span>
                                     </td>
                                     <td>
-                                        <a href="<?= BASE_URL ?>/index.php?controller=Ticket&action=show&id=<?= $t['id'] ?>"
-                                           class="btn btn-outline-primary btn-sm" title="Ver detalle">
-                                            <i class="bi bi-eye"></i>
-                                        </a>
+                                        <div class="d-flex gap-2">
+                                            <a href="<?= BASE_URL ?>/index.php?controller=Ticket&action=show&id=<?= $t['id'] ?>"
+                                            class="btn btn-action-edit btn-sm" title="Ver / Editar">
+                                                <i class="bi bi-pencil-fill"></i>
+                                            </a>
+                                            
+                                            <?php if ($_SESSION['rol_id'] == 1): /* Solo el coordinador puede ver este botón extra */ ?>
+                                                <button type="button" class="btn btn-action-delete btn-sm" title="Eliminar">
+                                                    <i class="bi bi-trash-fill"></i>
+                                                </button>
+                                            <?php endif; ?>
+                                        </div>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>

@@ -45,11 +45,33 @@ class DashboardController {
             $misTickets = $this->modelTicket->obtenerTicketsPorTecnico($_SESSION['user_id']);
         }
 
-        // ── Últimos tickets (Mesa y Coordinador) ───────────────────────
+// ── Últimos tickets (Diferenciado por Rol) ───────────────────────
         $ultimosTickets = [];
-        if (in_array($rolId, [1, 3])) {
+        if ($rolId == 1) {
+            // El Coordinador (Rol 1) ve los últimos 5 tickets generales del sistema
             $ultimosTickets = array_slice($this->modelTicket->obtenerTodosLosTickets(), 0, 5);
+        } elseif ($rolId == 3) {
+            // La Mesa de Ayuda (Rol 3) solo ve los últimos 5 que están "Sin asignar"
+            $todosLosTickets = $this->modelTicket->obtenerTodosLosTickets();
+            
+            // Filtramos el array buscando los que no tienen un técnico asignado
+            $ticketsSinAsignar = array_filter($todosLosTickets, function($t) {
+                return empty($t['tecnico']); 
+            });
+            
+            // Tomamos los primeros 5 de esa lista filtrada
+            $ultimosTickets = array_slice($ticketsSinAsignar, 0, 5);
         }
+
+        // ── PREPARAR DATOS PARA LAS GRÁFICAS (RF_14 y RF_15) ───────────
+        // Esto es necesario para que el código Javascript (Chart.js) en la vista pueda leerlos
+        $chartData1 = json_encode([
+            'activos' => $ticketsActivos, 
+            'cerrados' => $ticketsCerrados
+        ]);
+        
+        // Si no hay datos de técnicos (porque no es coordinador), enviamos un array vacío
+        $chartData2 = json_encode($porTecnico ?: []);
 
         $pageTitle = 'Dashboard';
         require BASE_PATH . '/app/views/dashboard/index.php';
