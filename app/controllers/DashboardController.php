@@ -25,52 +25,42 @@ class DashboardController {
         $rolId = $_SESSION['rol_id'];
 
         // ── Datos comunes ──────────────────────────────────────────────
-        $totalTickets  = $this->modelTicket->contarTotal();
-        $ticketsActivos = $this->modelTicket->contarActivos();
+        $totalTickets    = $this->modelTicket->contarTotal();
+        $ticketsActivos  = $this->modelTicket->contarActivos();
         $ticketsCerrados = $this->modelTicket->contarCerrados();
-        $porEstatus    = $this->modelTicket->contarPorEstatus();
 
-        // ── Datos del coordinador ──────────────────────────────────────
+        // ── Datos del coordinador (Rol 1) ──────────────────────────────
         $porTecnico  = [];
         $totalUsuarios = 0;
 
         if ($rolId == 1) {
-            $porTecnico   = $this->modelTicket->contarPorTecnico();
+            // Usamos el nuevo método que incluye a Mesa de Ayuda y roles con 0 tickets
+            $porTecnico    = $this->modelTicket->contarCargaPorUsuario();
             $totalUsuarios = count($this->modelUsuario->obtenerTodos());
         }
 
-        // ── Datos del técnico ──────────────────────────────────────────
+        // ── Datos del técnico (Rol 2) ──────────────────────────────────
         $misTickets = [];
         if ($rolId == 2) {
             $misTickets = $this->modelTicket->obtenerTicketsPorTecnico($_SESSION['user_id']);
         }
 
-// ── Últimos tickets (Diferenciado por Rol) ───────────────────────
+        // ── Últimos tickets (Ocultos para Coordinador) ─────────────────
         $ultimosTickets = [];
-        if ($rolId == 1) {
-            // El Coordinador (Rol 1) ve los últimos 5 tickets generales del sistema
-            $ultimosTickets = array_slice($this->modelTicket->obtenerTodosLosTickets(), 0, 5);
-        } elseif ($rolId == 3) {
-            // La Mesa de Ayuda (Rol 3) solo ve los últimos 5 que están "Sin asignar"
+        if ($rolId == 3) {
+            // La Mesa de Ayuda (Rol 3) solo ve los últimos 5 "Sin asignar"
             $todosLosTickets = $this->modelTicket->obtenerTodosLosTickets();
-            
-            // Filtramos el array buscando los que no tienen un técnico asignado
-            $ticketsSinAsignar = array_filter($todosLosTickets, function($t) {
-                return empty($t['tecnico']); 
-            });
-            
-            // Tomamos los primeros 5 de esa lista filtrada
+            $ticketsSinAsignar = array_filter($todosLosTickets, fn($t) => empty($t['tecnico']));
             $ultimosTickets = array_slice($ticketsSinAsignar, 0, 5);
         }
 
         // ── PREPARAR DATOS PARA LAS GRÁFICAS (RF_14 y RF_15) ───────────
-        // Esto es necesario para que el código Javascript (Chart.js) en la vista pueda leerlos
         $chartData1 = json_encode([
-            'activos' => $ticketsActivos, 
+            'activos'  => $ticketsActivos, 
             'cerrados' => $ticketsCerrados
         ]);
         
-        // Si no hay datos de técnicos (porque no es coordinador), enviamos un array vacío
+        // Enviamos la carga de trabajo estructurada a JS
         $chartData2 = json_encode($porTecnico ?: []);
 
         $pageTitle = 'Dashboard';

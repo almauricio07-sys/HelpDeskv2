@@ -111,103 +111,45 @@ if ($rolId == 1): ?>
     </div>
 
     <div class="row g-3 mb-4">
-        <div class="col-md-5 fade-in-up delay-1">
+        <div class="col-md-4 fade-in-up delay-1">
             <div class="hd-card h-100">
                 <div class="hd-card-header">
                     <h2 class="hd-card-title">
                         <i class="bi bi-pie-chart-fill text-accent"></i>
-                        Activos vs Cerrados
+                        Proporción Global
                     </h2>
                 </div>
-                <div class="hd-card-body chart-container" style="min-height:260px; display:flex; align-items:center; justify-content:center;">
-                    <canvas id="chartActivosCerrados" style="max-height:240px;"></canvas>
+                <div class="hd-card-body chart-container d-flex align-items-center justify-content-center" style="min-height:300px;">
+                    <canvas id="chartActivosCerrados" style="max-height:260px;"></canvas>
                 </div>
             </div>
         </div>
 
-        <div class="col-md-7 fade-in-up delay-2">
+        <div class="col-md-8 fade-in-up delay-2">
             <div class="hd-card h-100">
-                <div class="hd-card-header">
-                    <h2 class="hd-card-title">
-                        <i class="bi bi-bar-chart-fill text-accent"></i>
-                        Tickets por Técnico
+                <div class="hd-card-header d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                    <h2 class="hd-card-title mb-0">
+                        <i class="bi bi-bar-chart-line-fill text-accent"></i>
+                        Carga de Trabajo por Usuario
                     </h2>
+                    <div class="d-flex flex-wrap gap-2">
+                        <input type="text" id="filterName" class="form-control form-control-sm" placeholder="🔍 Buscar nombre..." style="min-width: 160px; max-width: 200px;">
+                        <select id="filterRole" class="form-select form-select-sm" style="min-width: 140px; max-width: 180px;">
+                            <option value="">Todos los roles</option>
+                            <option value="Técnico">Equipo Soporte (Técnicos)</option>
+                            <option value="Mesa de Ayuda">Mesa de Ayuda</option>
+                            <option value="General">Sin Asignar</option>
+                        </select>
+                    </div>
                 </div>
-                <div class="hd-card-body chart-container" style="min-height:260px;">
-                    <canvas id="chartTicketsUsuario" style="max-height:240px;"></canvas>
+                <div class="hd-card-body chart-container" style="min-height:300px;">
+                    <canvas id="chartTicketsUsuario" style="max-height:260px;"></canvas>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="hd-card fade-in-up">
-        <div class="hd-card-header">
-            <h2 class="hd-card-title">
-                <i class="bi bi-clock-history text-accent"></i>
-                Últimos Tickets Registrados
-            </h2>
-            <a href="<?= BASE_URL ?>/index.php?controller=Ticket&action=index" class="btn btn-outline-primary btn-sm">
-                <i class="bi bi-list-ul"></i> Ver todos
-            </a>
-        </div>
-        <div class="hd-card-body p-0">
-            <?php if (empty($ultimosTickets)): ?>
-                <div class="empty-state">
-                    <i class="bi bi-ticket-perforated d-block"></i>
-                    <p>No hay tickets registrados aún.</p>
-                </div>
-            <?php else: ?>
-                <div class="hd-table-wrapper" style="border:none; border-radius:0;">
-                    <table class="table table-hover mb-0">
-                        <thead>
-                            <tr>
-                                <th>Folio</th>
-                                <th>Solicitante</th>
-                                <th>Prioridad</th>
-                                <th>Estatus</th>
-                                <th>Técnico</th>
-                                <th>Fecha</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($ultimosTickets as $t): ?>
-                                <tr>
-                                    <td><span class="folio-tag"><?= htmlspecialchars($t['folio']) ?></span></td>
-                                    <td><?= htmlspecialchars($t['solicitante']) ?></td>
-                                    <td>
-                                        <span class="hd-badge <?= badgePrioridad($t['prioridad']) ?>">
-                                            <?= ucfirst($t['prioridad']) ?>
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <span class="hd-badge <?= badgeEstatus($t['estatus']) ?>">
-                                            <?= htmlspecialchars($t['estatus']) ?>
-                                        </span>
-                                    </td>
-                                    <td><?= $t['tecnico'] ? htmlspecialchars($t['tecnico']) : '<span class="text-muted-hd">Sin asignar</span>' ?></td>
-                                    <td style="font-size:0.78rem; color:var(--text-muted);">
-                                        <?= date('d/m/Y H:i', strtotime($t['fecha_creacion'])) ?>
-                                    </td>
-                                    <td>
-                                        <div class="d-flex gap-2">
-                                            <a href="<?= BASE_URL ?>/index.php?controller=Ticket&action=show&id=<?= $t['id'] ?>"
-                                               class="btn btn-action-edit btn-sm" title="Ver / Editar">
-                                                <i class="bi bi-pencil-fill"></i>
-                                            </a>
-                                            <button type="button" class="btn btn-action-delete btn-sm" title="Eliminar">
-                                                <i class="bi bi-trash-fill"></i>
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-            <?php endif; ?>
-        </div>
-    </div>
+    <?php /* ═══════════════════════════════════════════════════════════════════ */ ?>
 
 <?php /* ═══════════════════════════════════════════════════════════════════
         TÉCNICO (Rol 2): Sus tickets asignados
@@ -438,22 +380,19 @@ else: ?>
 
 <?php /* ─── Chart.js solo para Coordinador ─────────────────────────────────── */
 if ($rolId == 1): 
-    // Utilizamos ob_start() para inyectar correctamente PHP en el JS sin que se rompa el layout
     ob_start();
 ?>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Configuraciones globales para el Midnight Slate Dark Mode
         Chart.defaults.color = '#8b949e'; 
-        Chart.defaults.borderColor = 'rgba(139, 148, 158, 0.1)';
+        Chart.defaults.borderColor = 'rgba(139, 148, 158, 0.08)';
         Chart.defaults.font.family = "'Inter', system-ui, -apple-system, sans-serif";
 
-        // ─── Variables inyectadas desde PHP (Controlador) ───
         const dataAC = <?= $chartData1 ?? '{"activos":0,"cerrados":0}' ?>;
-        const dataTU = <?= $chartData2 ?? '[]' ?>;
+        let originalDataTU = <?= $chartData2 ?? '[]' ?>; // Almacenamos el dataset íntegro
 
-        // ─── 1. Gráfica RF_14: Activos vs Cerrados (Doughnut) ───
+        // 1. Gráfica Doughnut (Activos vs Cerrados)
         const ctxE = document.getElementById('chartActivosCerrados');
         if (ctxE) {
             new Chart(ctxE.getContext('2d'), {
@@ -462,73 +401,85 @@ if ($rolId == 1):
                     labels: ['Activos', 'Cerrados'],
                     datasets: [{
                         data: [dataAC.activos, dataAC.cerrados],
-                        backgroundColor: ['#d29922', '#238636'], // Ocre/Amarillo y Verde Mate
-                        borderColor: '#161b22', // Color de la tarjeta de fondo (Midnight Slate)
-                        borderWidth: 3,
+                        backgroundColor: ['#2f81f7', '#238636'], 
+                        borderColor: '#161b22', 
+                        borderWidth: 4,
                         hoverOffset: 6
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    cutout: '70%',
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: { padding: 16, font: { size: 12 } }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: ctx => ` ${ctx.label}: ${ctx.parsed} tickets`
-                            }
-                        }
-                    }
+                    cutout: '75%',
+                    plugins: { legend: { position: 'bottom', labels: { padding: 20 } } }
                 }
             });
         }
 
-        // ─── 2. Gráfica RF_15: Tickets por Técnico (Bar) ───
-        const nombresTecnicos = dataTU.map(item => item.tecnico);
-        const totalesTecnicos = dataTU.map(item => item.total);
-
+        // 2. Gráfica Bar (Carga de Trabajo) con instanciación dinámica
         const ctxT = document.getElementById('chartTicketsUsuario');
         if (ctxT) {
-            new Chart(ctxT.getContext('2d'), {
+            let chartTU = new Chart(ctxT.getContext('2d'), {
                 type: 'bar',
                 data: {
-                    labels: nombresTecnicos.length > 0 ? nombresTecnicos : ['Sin asignar'],
+                    labels: originalDataTU.map(item => item.tecnico),
                     datasets: [{
-                        label: 'Tickets Asignados',
-                        data: totalesTecnicos.length > 0 ? totalesTecnicos : [0],
-                        backgroundColor: '#2f81f7', // Azul Accent de nuestro CSS
-                        borderRadius: 4,
-                        barPercentage: 0.6
+                        label: 'Tickets Activos',
+                        data: originalDataTU.map(item => item.total),
+                        backgroundColor: '#2f81f7',
+                        hoverBackgroundColor: '#388bfd',
+                        borderRadius: 6,
+                        barPercentage: 0.4
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: { 
-                        legend: { display: false } 
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                // Muestra el rol en el hover de la barra
+                                afterLabel: (ctx) => `Rol: ${originalDataTU[ctx.dataIndex].rol}`
+                            }
+                        }
                     },
                     scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: { stepSize: 1 }
-                        },
-                        x: {
-                            grid: { display: false }
-                        }
+                        y: { beginAtZero: true, ticks: { stepSize: 1 } },
+                        x: { grid: { display: false } }
                     }
                 }
             });
+
+            // 3. Lógica de Filtrado en Tiempo Real (Buscador y Selector)
+            function updateChart() {
+                const nameFilter = document.getElementById('filterName').value.toLowerCase();
+                const roleFilter = document.getElementById('filterRole').value;
+
+                // Filtramos el arreglo original
+                const filteredData = originalDataTU.filter(item => {
+                    const matchName = item.tecnico.toLowerCase().includes(nameFilter);
+                    const matchRole = roleFilter === '' || item.rol === roleFilter;
+                    return matchName && matchRole;
+                });
+
+                // Actualizamos los datos del objeto Chart y re-dibujamos
+                chartTU.data.labels = filteredData.map(i => i.tecnico);
+                chartTU.data.datasets[0].data = filteredData.map(i => i.total);
+                // Actualizar tooltip reference
+                chartTU.options.plugins.tooltip.callbacks.afterLabel = (ctx) => `Rol: ${filteredData[ctx.dataIndex].rol}`;
+                
+                chartTU.update();
+            }
+
+            // Escuchadores de eventos
+            document.getElementById('filterName').addEventListener('input', updateChart);
+            document.getElementById('filterRole').addEventListener('change', updateChart);
         }
     });
     </script>
 <?php 
-    // Capturamos el script y lo asignamos a extraJs para que el footer lo imprima abajo del todo
     $extraJs = ob_get_clean(); 
 endif; 
 ?>
-
 <?php require BASE_PATH . '/app/views/layouts/footer.php'; ?>

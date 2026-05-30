@@ -196,4 +196,43 @@ class Ticket {
     public function contarActivos(): int { return (int) $this->db->query("SELECT COUNT(*) FROM tickets WHERE id_estatus != 3")->fetchColumn(); }
     public function contarCerrados(): int { return (int) $this->db->query("SELECT COUNT(*) FROM tickets WHERE id_estatus = 3")->fetchColumn(); }
     public function contarTotal(): int { return (int) $this->db->query("SELECT COUNT(*) FROM tickets")->fetchColumn(); }
+
+    /**
+     * RF_15: Obtiene la carga de trabajo de Soporte y Mesa de Ayuda.
+     * Incluye a los técnicos que tienen 0 tickets asignados.
+     */
+    public function contarCargaPorUsuario(): array {
+        // 1. Usuarios con tickets activos asignados (incluye "Sin asignar")
+        $sqlConCarga = "
+            SELECT COALESCE(u.nombre_completo, 'Sin asignar') AS tecnico, 
+                   COALESCE(r.nombre_rol, 'General') AS rol, 
+                   COUNT(t.id) AS total 
+            FROM tickets t 
+            LEFT JOIN usuarios u ON t.id_tecnico = u.id 
+            LEFT JOIN roles r ON u.id_rol = r.id 
+            WHERE t.id_estatus != 3 -- Omitimos los cerrados
+            GROUP BY t.id_tecnico, u.nombre_completo, r.nombre_rol
+        ";
+        $conCarga = $this->db->query($sqlConCarga)->fetchAll(PDO::FETCH_ASSOC);
+
+        // 2. Usuarios de Soporte (2) y Mesa de Ayuda (3) sin tickets activos (carga = 0)
+        $sqlSinCarga = "
+            SELECT u.nombre_completo AS tecnico, 
+                   r.nombre_rol AS rol, 
+                   0 AS total
+            FROM usuarios u
+            INNER JOIN roles r ON u.id_rol = r.id
+            WHERE u.id_rol IN (2, 3) AND u.estado = 'activo'
+            AND u.id NOT IN (
+                SELECT id_tecnico FROM tickets WHERE id_tecnico IS NOT NULL AND id_estatus != 3
+            )
+        ";
+        $sinCarga = $this->db->query($sqlSinCarga)->fetchAll(PDO::FETCH_ASSOC);
+
+        // Combinamos ambos resultados y ordenamos de mayor a menor carga
+        $resultado = array_merge($conCarga, $sinCarga);
+        usort($resultado, fn($a, $b) => $b['total'] <=> $a['total']);
+        
+        return $resultado;
+    }
 }
