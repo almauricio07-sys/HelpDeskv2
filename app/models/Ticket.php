@@ -25,7 +25,7 @@ class Ticket {
     public function buscarSolicitantePorClave(string $clave): array|false {
         $stmt = $this->db->prepare("SELECT * FROM solicitantes WHERE clave_reportante = ? LIMIT 1");
         $stmt->execute([$clave]);
-        return $stmt->fetch();
+        return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
     public function crearSolicitante(string $claveReportante, string $nombreCompleto, string $correo, int $idDepartamento): int {
@@ -59,16 +59,63 @@ class Ticket {
     }
 
     /**
-     * Envía el ticket a validación (RF_10)
-     * Quita al técnico asignado y cambia el estatus a 4 (Validación).
+     * RF_01 + RF_03: Registra el ticket aplicando "Upsert" del solicitante en
+     * una sola transacción.
+     *
+     * - Si la clave_reportante ya existe, reutiliza ese solicitante.
+     * - Si no existe, lo inserta primero y luego crea el ticket.
+     *
+     * Todo ocurre dentro de beginTransaction/commit para garantizar que nunca
+     * quede un solicitante huérfano si la inserción del ticket falla.
+     *
+     * @return string El folio generado para el nuevo ticket.
+     * @throws Exception si la operación no puede completarse (se hace rollBack).
+     */
+    public function registrarTicketConSolicitante(
+        string $claveReportante, string $nombreCompleto, string $correo, int $idDepartamento,
+        int $idCanal, string $descripcion, string $prioridad
+    ): string {
+        try {
+            $this->db->beginTransaction();
+
+            $solicitante = $this->buscarSolicitantePorClave($claveReportante);
+            $idSolicitante = $solicitante
+                ? (int) $solicitante['id']
+                : $this->crearSolicitante($claveReportante, $nombreCompleto, $correo, $idDepartamento);
+
+            $folio = $this->generarFolioUnico();
+            $this->crearTicket($folio, $idSolicitante, $idCanal, $descripcion, $prioridad, 1);
+
+            $this->db->commit();
+            return $folio;
+
+        } catch (Exception $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $e;
+        }
+    }
+
+    /**
+     * Flujo de validación (RF_10) — acción del Técnico al marcar "Terminado".
+     *
+     * NO cierra el ticket. Lo pasa al estatus intermedio 5 ("Pendiente de
+     * Validación") para que Mesa de Ayuda lo revise y realice el cierre
+     * definitivo. Se conserva:
+     *   - id_tecnico:        para mantener el historial de quién atendió.
+     *   - id_mesa_asignada:  el usuario de Mesa original que validará el folio.
      */
     public function enviarAValidacion(int $idTicket): bool {
-        // Asegúrate de que el ID 4 corresponde al estatus de "Validación" en tu tabla estatus_tickets
-        $stmt = $this->db->prepare(
-            "UPDATE tickets SET id_tecnico = NULL, id_estatus = 4 WHERE id = ?"
-        );
+        $stmt = $this->db->prepare("UPDATE tickets SET id_estatus = 5 WHERE id = ?");
         return $stmt->execute([$idTicket]);
     }
+
+    // ── Control de transacciones (orquestado desde el controlador) ──────────
+    public function beginTransaction(): bool { return $this->db->beginTransaction(); }
+    public function commit(): bool          { return $this->db->commit(); }
+    public function rollBack(): bool        { return $this->db->rollBack(); }
+    public function inTransaction(): bool   { return $this->db->inTransaction(); }
 
     public function obtenerTodosLosTickets(array $filtros = []): array {
         $sql = "SELECT t.id, t.folio, t.descripcion, t.prioridad, t.fecha_creacion, t.fecha_cierre,
@@ -91,25 +138,60 @@ class Ticket {
         return $stmt->fetchAll();
     }
 
-    public function obtenerTicketsPorTecnico(int $idTecnico): array {
-        // Excluimos estatus 3 (Cerrado) y 4 (Validación) para que el técnico no los vea
+    /**
+     * RF_06: Folios del técnico. Ahora incluye TODOS sus folios (incluidos los
+     * Cerrados) para que pueda consultar su historial. Acepta un filtro opcional
+     * por estatus.
+     */
+    public function obtenerTicketsPorTecnico(int $idTecnico, array $filtros = []): array {
+        $sql = "SELECT t.id, t.folio, t.descripcion, t.prioridad, t.fecha_creacion, t.id_estatus,
+                       s.nombre_completo AS solicitante, s.clave_reportante AS clave,
+                       cc.nombre_canal AS canal, es.nombre_estatus AS estatus
+                FROM tickets t
+                LEFT JOIN solicitantes s ON t.id_solicitante = s.id
+                LEFT JOIN canales_contacto cc ON t.id_canal = cc.id
+                LEFT JOIN estatus_tickets es ON t.id_estatus = es.id
+                WHERE t.id_tecnico = ?";
+
+        $params = [$idTecnico];
+        if (isset($filtros['id_estatus']) && $filtros['id_estatus'] !== '') {
+            $sql .= " AND t.id_estatus = ?";
+            $params[] = (int) $filtros['id_estatus'];
+        }
+
+        $sql .= " ORDER BY t.fecha_creacion DESC";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * Panel de Validación (RF_10) — folios asignados a un usuario de Mesa de
+     * Ayuda que están en estatus 5 (Pendiente de Validación), listos para que
+     * los revise y cierre.
+     *
+     * @param int $idMesa usuarios.id del usuario de Mesa logueado.
+     */
+    public function obtenerTicketsPorValidar(int $idMesa): array {
         $stmt = $this->db->prepare(
             "SELECT t.id, t.folio, t.descripcion, t.prioridad, t.fecha_creacion,
-                    s.nombre_completo AS solicitante, es.nombre_estatus AS estatus
+                    s.nombre_completo AS solicitante, s.clave_reportante AS clave,
+                    u.nombre_completo AS tecnico
              FROM tickets t
              LEFT JOIN solicitantes s ON t.id_solicitante = s.id
-             LEFT JOIN estatus_tickets es ON t.id_estatus = es.id
-             WHERE t.id_tecnico = ? AND t.id_estatus NOT IN (3, 4)
-             ORDER BY t.fecha_creacion DESC"
+             LEFT JOIN usuarios u ON t.id_tecnico = u.id
+             WHERE t.id_mesa_asignada = ? AND t.id_estatus = 5
+             ORDER BY t.fecha_creacion ASC"
         );
-        $stmt->execute([$idTecnico]);
+        $stmt->execute([$idMesa]);
         return $stmt->fetchAll();
     }
 
     public function obtenerTicketPorId(int $id): array|false {
         $stmt = $this->db->prepare(
-            "SELECT t.*, s.nombre_completo AS solicitante, s.correo AS correo_solicitante,
-                    d.nombre_departamento AS departamento, cc.nombre_canal AS canal, 
+            "SELECT t.*, s.nombre_completo AS solicitante, s.clave_reportante AS clave,
+                    s.correo AS correo_solicitante,
+                    d.nombre_departamento AS departamento, cc.nombre_canal AS canal,
                     es.nombre_estatus AS estatus, u.nombre_completo AS tecnico
              FROM tickets t
              LEFT JOIN solicitantes s ON t.id_solicitante = s.id
@@ -123,7 +205,18 @@ class Ticket {
         return $stmt->fetch();
     }
 
-    public function asignarTecnico(int $idTicket, int $idTecnico): bool {
+    /**
+     * RF_07: Asigna un técnico y pone el ticket "En Proceso" (estatus 2).
+     * Si se pasa $idMesa, registra al usuario de Mesa que deberá validar al
+     * cierre (poblando id_mesa_asignada), para la automatización de "Terminado".
+     */
+    public function asignarTecnico(int $idTicket, int $idTecnico, ?int $idMesa = null): bool {
+        if ($idMesa !== null) {
+            $stmt = $this->db->prepare(
+                "UPDATE tickets SET id_tecnico = ?, id_estatus = 2, id_mesa_asignada = ? WHERE id = ?"
+            );
+            return $stmt->execute([$idTecnico, $idMesa, $idTicket]);
+        }
         $stmt = $this->db->prepare("UPDATE tickets SET id_tecnico = ?, id_estatus = 2 WHERE id = ?");
         return $stmt->execute([$idTecnico, $idTicket]);
     }
@@ -133,6 +226,7 @@ class Ticket {
         $stmt = $this->db->prepare("UPDATE tickets SET id_estatus = ? {$fechaCierre} WHERE id = ?");
         return $stmt->execute([$idEstatus, $idTicket]);
     }
+
 
     public function agregarNota(int $idTicket, int $idTecnico, string $nota): bool {
         $stmt = $this->db->prepare(
@@ -165,17 +259,6 @@ class Ticket {
         return $stmt->fetchAll();
     }
 
-    /**
-     * Reasigna el ticket a un miembro de Mesa de Ayuda para validación
-     */
-    public function reasignarAMesa(int $idTicket, int $idMesa): bool {
-        // Estatus 4 = Validación
-        $stmt = $this->db->prepare(
-            "UPDATE tickets SET id_tecnico = NULL, id_mesa_asignada = ?, id_estatus = 4 WHERE id = ?"
-        );
-        return $stmt->execute([$idMesa, $idTicket]);
-    }
-
     // ══════════════════════════════════════════════════════════════════════
     //  CATÁLOGOS Y ESTADÍSTICAS
     // ══════════════════════════════════════════════════════════════════════
@@ -202,29 +285,42 @@ class Ticket {
      * Incluye a los técnicos que tienen 0 tickets asignados.
      */
     public function contarCargaPorUsuario(): array {
-        // 1. Usuarios con tickets activos asignados (incluye "Sin asignar")
+        // 1. Carga real por usuario. Cada ticket NO cerrado cuenta una sola vez y
+        //    se atribuye a su responsable ACTUAL:
+        //      - estatus 5 (Pendiente de Validación) → usuario de Mesa (id_mesa_asignada)
+        //      - resto de activos                     → técnico (id_tecnico)
+        //    Así la Mesa de Ayuda ve reflejado su trabajo de validación (RF_15).
         $sqlConCarga = "
-            SELECT COALESCE(u.nombre_completo, 'Sin asignar') AS tecnico, 
-                   COALESCE(r.nombre_rol, 'General') AS rol, 
-                   COUNT(t.id) AS total 
-            FROM tickets t 
-            LEFT JOIN usuarios u ON t.id_tecnico = u.id 
-            LEFT JOIN roles r ON u.id_rol = r.id 
-            WHERE t.id_estatus != 3 -- Omitimos los cerrados
-            GROUP BY t.id_tecnico, u.nombre_completo, r.nombre_rol
+            SELECT COALESCE(u.nombre_completo, 'Sin asignar') AS tecnico,
+                   COALESCE(r.nombre_rol, 'General') AS rol,
+                   COUNT(c.id) AS total
+            FROM (
+                SELECT t.id,
+                       CASE WHEN t.id_estatus = 5 THEN t.id_mesa_asignada ELSE t.id_tecnico END AS id_owner
+                FROM tickets t
+                WHERE t.id_estatus <> 3 -- Omitimos los cerrados
+            ) c
+            LEFT JOIN usuarios u ON c.id_owner = u.id
+            LEFT JOIN roles r ON u.id_rol = r.id
+            GROUP BY c.id_owner, u.nombre_completo, r.nombre_rol
         ";
         $conCarga = $this->db->query($sqlConCarga)->fetchAll(PDO::FETCH_ASSOC);
 
-        // 2. Usuarios de Soporte (2) y Mesa de Ayuda (3) sin tickets activos (carga = 0)
+        // 2. Usuarios de Soporte (2) y Mesa de Ayuda (3) activos sin carga (total = 0)
         $sqlSinCarga = "
-            SELECT u.nombre_completo AS tecnico, 
-                   r.nombre_rol AS rol, 
+            SELECT u.nombre_completo AS tecnico,
+                   r.nombre_rol AS rol,
                    0 AS total
             FROM usuarios u
             INNER JOIN roles r ON u.id_rol = r.id
             WHERE u.id_rol IN (2, 3) AND u.estado = 'activo'
             AND u.id NOT IN (
-                SELECT id_tecnico FROM tickets WHERE id_tecnico IS NOT NULL AND id_estatus != 3
+                SELECT id_owner FROM (
+                    SELECT CASE WHEN id_estatus = 5 THEN id_mesa_asignada ELSE id_tecnico END AS id_owner
+                    FROM tickets
+                    WHERE id_estatus <> 3
+                ) act
+                WHERE id_owner IS NOT NULL
             )
         ";
         $sinCarga = $this->db->query($sqlSinCarga)->fetchAll(PDO::FETCH_ASSOC);
@@ -232,7 +328,9 @@ class Ticket {
         // Combinamos ambos resultados y ordenamos de mayor a menor carga
         $resultado = array_merge($conCarga, $sinCarga);
         usort($resultado, fn($a, $b) => $b['total'] <=> $a['total']);
-        
+
         return $resultado;
     }
+
+    
 }

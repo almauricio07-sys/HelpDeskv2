@@ -140,6 +140,7 @@ function badgePrioridadIdx(string $p): string {
                                 <th>Folio</th>
                                 <th>Solicitante</th>
                                 <th>Canal</th>
+                                <th>Descripción</th>
                                 <th>Prioridad</th>
                                 <th>Estatus</th>
                                 <th>Técnico</th>
@@ -157,6 +158,11 @@ function badgePrioridadIdx(string $p): string {
                                         <div style="font-size:0.74rem; color:var(--text-muted);"><?= htmlspecialchars($t['clave']) ?></div>
                                     </td>
                                     <td style="font-size:0.82rem;"><?= htmlspecialchars($t['canal']) ?></td>
+                                    <td style="max-width: 200px;">
+                                        <div class="text-truncate" style="font-size:0.82rem; color:var(--text-secondary);" title="<?= htmlspecialchars($t['descripcion']) ?>">
+                                            <?= htmlspecialchars($t['descripcion']) ?>
+                                        </div>
+                                    </td>
                                     <td>
                                         <span class="hd-badge <?= badgePrioridadIdx($t['prioridad']) ?>">
                                             <?= ucfirst($t['prioridad']) ?>

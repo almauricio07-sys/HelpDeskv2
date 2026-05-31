@@ -403,10 +403,10 @@ textarea.form-control { resize: vertical; min-height: 100px; }
   border-bottom-color: var(--border-subtle) !important;
 }
 
-/* El encabezado Ocre vibrante que habíamos puesto */
+/* Encabezado de tabla (estilo institucional oscuro; ver refinamiento más abajo) */
 .table thead th {
-  background-color: #cfa832 !important; 
-  color: #1a1a1a !important; 
+  background-color: rgba(255, 255, 255, 0.02) !important;
+  color: var(--text-secondary) !important;
   font-size: 0.85rem !important;
   font-weight: 700 !important;
   text-transform: capitalize !important;
@@ -848,4 +848,65 @@ hr {
     background-color: rgba(0, 0, 0, 0.2) !important; /* Más integrado al dark mode */
     border-radius: 8px !important;
     padding: 0.4rem 0.8rem !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Refuerzo Dark Mode Absoluto
+   Neutraliza colores de texto oscuros heredados de Bootstrap y elementos
+   nativos que rompían el contraste sobre fondos oscuros.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Utilidades de Bootstrap que por defecto pintan texto oscuro */
+.text-dark,
+.text-black,
+.text-body,
+.text-secondary {
+  color: var(--text-secondary) !important;
+}
+
+.text-muted {
+  color: var(--text-muted) !important;
+}
+
+/* Bootstrap usa estas variables para el color base del cuerpo y las tablas.
+   Las alineamos al tema oscuro para evitar texto negro sobre fondo oscuro. */
+:root {
+  --bs-body-color: var(--text-primary);
+  --bs-table-color: var(--text-primary);
+  --bs-emphasis-color: var(--text-primary);
+}
+
+/* Opciones nativas de los <select>: en varios navegadores el desplegable
+   hereda fondo claro / texto oscuro. Forzamos el tema. */
+.form-select option,
+.form-control option {
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+}
+
+/* Campos deshabilitados: atenuados pero legibles (no negro ilegible) */
+.form-control:disabled,
+.form-select:disabled {
+  color: var(--text-secondary) !important;
+  -webkit-text-fill-color: var(--text-secondary); /* Safari/Chrome */
+  opacity: 0.7;
+}
+
+/* Forzado global de texto claro: tablas, celdas, formularios y labels.
+   Cubre cualquier elemento que aún herede el color base oscuro de Bootstrap. */
+.table,
+.table td,
+.table th,
+.table tbody tr,
+.form-label,
+label,
+.modal-body,
+.modal-title {
+  color: var(--text-primary) !important;
+}
+
+/* Clase usada en las vistas del dashboard que no estaba definida (heredaba
+   color oscuro). La fijamos al gris perla del tema. */
+.text-primary-hd {
+  color: var(--text-primary) !important;
 }

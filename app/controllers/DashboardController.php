@@ -45,13 +45,18 @@ class DashboardController {
             $misTickets = $this->modelTicket->obtenerTicketsPorTecnico($_SESSION['user_id']);
         }
 
-        // ── Últimos tickets (Ocultos para Coordinador) ─────────────────
-        $ultimosTickets = [];
+        // ── Datos de Mesa de Ayuda (Rol 3) ─────────────────────────────
+        $ultimosTickets    = [];
+        $ticketsPendientes = [];
+        $porValidar        = [];
         if ($rolId == 3) {
-            // La Mesa de Ayuda (Rol 3) solo ve los últimos 5 "Sin asignar"
-            $todosLosTickets = $this->modelTicket->obtenerTodosLosTickets();
-            $ticketsSinAsignar = array_filter($todosLosTickets, fn($t) => empty($t['tecnico']));
-            $ultimosTickets = array_slice($ticketsSinAsignar, 0, 5);
+            // La Mesa de Ayuda (Rol 3) solo ve los últimos 15 "Sin asignar"
+            $filtrosPendientes = ['id_estatus' => 1];
+            $ticketsPendientes = $this->modelTicket->obtenerTodosLosTickets($filtrosPendientes);
+            $ticketsPendientes = array_slice($ticketsPendientes, 0, 15);
+
+            // Folios que este usuario de Mesa debe validar (estatus 5) → RF_10
+            $porValidar = $this->modelTicket->obtenerTicketsPorValidar((int) $_SESSION['user_id']);
         }
 
         // ── PREPARAR DATOS PARA LAS GRÁFICAS (RF_14 y RF_15) ───────────

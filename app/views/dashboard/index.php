@@ -315,56 +315,80 @@ else: ?>
                 <i class="bi bi-chevron-right ms-auto text-muted-hd"></i>
             </a>
         </div>
+        <div class="col-12">
+            <a href="<?= BASE_URL ?>/index.php?controller=Ticket&action=porValidar"
+               class="hd-card d-flex align-items-center gap-3 p-3 text-decoration-none" style="cursor:pointer;">
+                <div class="stat-icon green flex-shrink-0"><i class="bi bi-clipboard-check"></i></div>
+                <div>
+                    <div class="fw-600" style="color:var(--text-primary); font-weight:600;">Folios por Validar</div>
+                    <div style="font-size:0.8rem; color:var(--text-muted);">Folios terminados por el técnico, en espera de tu validación y cierre</div>
+                </div>
+                <span class="hd-badge <?= count($porValidar) > 0 ? 'badge-pendiente' : 'badge-cerrado' ?> ms-auto">
+                    <?= count($porValidar) ?> pendiente(s)
+                </span>
+            </a>
+        </div>
     </div>
 
-    <div class="hd-card fade-in-up">
-        <div class="hd-card-header">
+    <div class="hd-card fade-in-up delay-2 mt-4">
+        <div class="hd-card-header d-flex justify-content-between align-items-center">
             <h2 class="hd-card-title">
-                <i class="bi bi-clock-history text-accent"></i>
-                Últimos Tickets Registrados
+                <i class="bi bi-clock-history text-warning"></i> 
+                Pendiente de asignación
             </h2>
+            <span class="hd-badge badge-pendiente">Requiere atención</span>
         </div>
         <div class="hd-card-body p-0">
-            <?php if (empty($ultimosTickets)): ?>
-                <div class="empty-state">
-                    <i class="bi bi-ticket-perforated d-block"></i>
-                    <p>No hay tickets registrados aún.</p>
+            <?php if (empty($ticketsPendientes)): ?>
+                <div class="empty-state py-4">
+                    <i class="bi bi-check2-circle text-success d-block mb-2" style="font-size: 2rem;"></i>
+                    <p class="mb-0 text-muted">No hay tickets pendientes de asignación en este momento.</p>
                 </div>
             <?php else: ?>
                 <div class="hd-table-wrapper" style="border:none; border-radius:0;">
-                    <table class="table table-hover">
+                    <table class="table table-hover align-middle mb-0">
                         <thead>
                             <tr>
-                                <th>Folio</th>
-                                <th>Solicitante</th>
-                                <th>Prioridad</th>
-                                <th>Estatus</th>
-                                <th>Fecha</th>
-                                <th></th>
+                                <th scope="col" style="width: 25%;">Folio / Problema</th>
+                                <th scope="col">Solicitante</th>
+                                <th scope="col">Fecha de Creación</th>
+                                <th scope="col">Estatus</th>
+                                <th scope="col" class="text-end">Acción</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($ultimosTickets as $t): ?>
+                            <?php foreach ($ticketsPendientes as $t): ?>
                                 <tr>
-                                    <td><span class="folio-tag"><?= htmlspecialchars($t['folio']) ?></span></td>
-                                    <td><?= htmlspecialchars($t['solicitante']) ?></td>
                                     <td>
-                                        <span class="hd-badge <?= badgePrioridad($t['prioridad']) ?>">
-                                            <?= ucfirst($t['prioridad']) ?>
+                                        <div class="d-flex flex-column gap-1">
+                                            <span class="folio-tag d-inline-block" style="width: fit-content;">
+                                                <?= htmlspecialchars($t['folio']) ?>
+                                            </span>
+                                            <!-- Aquí cambiamos 'text-muted' por 'text-white' -->
+                                            <div class="text-truncate text-white" style="max-width: 250px; font-size: 0.82rem;" title="<?= htmlspecialchars($t['descripcion']) ?>">
+                                                <?= htmlspecialchars($t['descripcion']) ?>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold text-primary-hd">
+                                            <?= htmlspecialchars($t['solicitante']) ?>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex flex-column text-muted" style="font-size: 0.85rem;">
+                                            <span><i class="bi bi-calendar3 me-1"></i><?= date('d/m/Y', strtotime($t['fecha_creacion'])) ?></span>
+                                            <span style="font-size: 0.75rem;"><i class="bi bi-clock me-1"></i><?= date('H:i', strtotime($t['fecha_creacion'])) ?> hrs</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="hd-badge badge-pendiente">
+                                            <i class="bi bi-hourglass-split me-1"></i> Pendiente de asignación
                                         </span>
                                     </td>
-                                    <td>
-                                        <span class="hd-badge <?= badgeEstatus($t['estatus']) ?>">
-                                            <?= htmlspecialchars($t['estatus']) ?>
-                                        </span>
-                                    </td>
-                                    <td style="font-size:0.78rem; color:var(--text-muted);">
-                                        <?= date('d/m/Y H:i', strtotime($t['fecha_creacion'])) ?>
-                                    </td>
-                                    <td>
-                                        <a href="<?= BASE_URL ?>/index.php?controller=Ticket&action=show&id=<?= $t['id'] ?>"
-                                           class="btn btn-action-edit btn-sm" title="Ver / Editar">
-                                            <i class="bi bi-pencil-fill"></i>
+                                    <td class="text-end">
+                                        <a href="<?= BASE_URL ?>/index.php?controller=Ticket&action=show&id=<?= $t['id'] ?>" class="btn btn-outline-primary btn-sm">
+                                            <i class="bi bi-box-arrow-in-right"></i> Atender
                                         </a>
                                     </td>
                                 </tr>

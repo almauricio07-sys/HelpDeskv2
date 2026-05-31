@@ -97,6 +97,7 @@ function badgePMT(string $p): string {
                         <tr>
                             <th>Folio</th>
                             <th>Solicitante</th>
+                            <th>Descripción</th>
                             <th>Canal</th>
                             <th>Prioridad</th>
                             <th>Estatus</th>
@@ -106,11 +107,15 @@ function badgePMT(string $p): string {
                     </thead>
                     <tbody>
                         <?php foreach ($tickets as $t): ?>
-                            <tr>
+                            <?php $cerrado = (int)$t['id_estatus'] === 3; ?>
+                            <tr<?= $cerrado ? ' style="opacity:0.6;"' : '' ?>>
                                 <td><span class="folio-tag"><?= htmlspecialchars($t['folio']) ?></span></td>
                                 <td>
                                     <div style="font-weight:500;"><?= htmlspecialchars($t['solicitante']) ?></div>
                                     <div style="font-size:0.74rem; color:var(--text-muted);"><?= htmlspecialchars($t['clave']) ?></div>
+                                </td>
+                                <td style="font-size:0.8rem; max-width:240px; color:var(--text-secondary);">
+                                    <?= htmlspecialchars(mb_strimwidth($t['descripcion'], 0, 60, '…')) ?>
                                 </td>
                                 <td style="font-size:0.82rem;"><?= htmlspecialchars($t['canal']) ?></td>
                                 <td>
@@ -127,10 +132,17 @@ function badgePMT(string $p): string {
                                     <?= date('d/m/Y H:i', strtotime($t['fecha_creacion'])) ?>
                                 </td>
                                 <td>
-                                    <a href="<?= BASE_URL ?>/index.php?controller=Ticket&action=show&id=<?= $t['id'] ?>"
-                                       class="btn btn-outline-primary btn-sm">
-                                        <i class="bi bi-eye"></i> Ver
-                                    </a>
+                                    <?php if ($cerrado): ?>
+                                        <a href="<?= BASE_URL ?>/index.php?controller=Ticket&action=show&id=<?= $t['id'] ?>"
+                                           class="btn btn-outline-secondary btn-sm">
+                                            <i class="bi bi-lock-fill"></i> Solo lectura
+                                        </a>
+                                    <?php else: ?>
+                                        <a href="<?= BASE_URL ?>/index.php?controller=Ticket&action=show&id=<?= $t['id'] ?>"
+                                           class="btn btn-outline-primary btn-sm">
+                                            <i class="bi bi-eye"></i> Ver
+                                        </a>
+                                    <?php endif; ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>

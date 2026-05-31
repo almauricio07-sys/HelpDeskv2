@@ -5,7 +5,7 @@ class Database {
 
     private function __construct() {
         $host = 'localhost';
-        $db   = 'helpdesk'; // Verifica que tu base de datos se llame así
+        $db   = 'helpdesk_db'; // Verifica que tu base de datos se llame así
         $user = 'root';
         $pass = ''; 
 

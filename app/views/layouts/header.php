@@ -87,6 +87,11 @@ function isActive(string $controller, string $action = ''): string {
                             <i class="bi bi-ticket-perforated"></i> Todos los Tickets
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link <?= isActive('Ticket', 'porValidar') ?>" href="<?= BASE_URL ?>/index.php?controller=Ticket&action=porValidar">
+                            <i class="bi bi-clipboard-check"></i> Por Validar
+                        </a>
+                    </li>
 
                 <!-- ── MENÚ ROL 2: TÉCNICO ────────────────────────────────── -->
                 <?php elseif ($rolId == 2): ?>

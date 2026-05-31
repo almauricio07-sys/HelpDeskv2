@@ -33,6 +33,10 @@
         row.style.cursor = 'pointer';
     });
 
+    // NOTA: El autocompletado AJAX del solicitante (Upsert) vive en el script
+    // inline de app/views/tickets/create.php, donde sí se interpreta BASE_URL
+    // de PHP. No debe duplicarse aquí (este archivo .js no pasa por PHP).
+
     // ── Navegación activa en la navbar ─────────────────────────────────────
     // (Ya se maneja desde PHP con la función isActive() en header.php)
 

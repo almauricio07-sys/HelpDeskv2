@@ -14,6 +14,7 @@ unset($_SESSION['flash_success'], $_SESSION['flash_error']);
 
 $rolId    = $_SESSION['rol_id'];
 $esCerrado = strtolower($ticket['estatus']) === 'cerrado';
+$enValidacion = (int)($ticket['id_estatus'] ?? 0) === 5; // Pendiente de Validación
 
 function mapBadge(string $val, string $tipo): string {
     if ($tipo === 'estatus') {
@@ -72,8 +73,8 @@ function mapBadge(string $val, string $tipo): string {
     </div>
     <!-- Cerrar ticket — Mesa/Coordinador -->
     <?php if (in_array($rolId, [1, 3]) && !$esCerrado): ?>
-        <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#modalCerrar">
-            <i class="bi bi-check2-circle"></i> Cerrar Ticket
+        <button type="button" class="btn btn-outline-success shadow-sm" data-bs-toggle="modal" data-bs-target="#modalCerrar">
+            <i class="bi bi-check2-circle"></i> Finalizar Ticket
         </button>
     <?php endif; ?>
 </div>
@@ -129,7 +130,7 @@ function mapBadge(string $val, string $tipo): string {
                 <?php endif; ?>
 
                 <!-- Formulario de nueva nota (solo Técnico) -->
-                <?php if ($rolId == 2 && !$esCerrado): ?>
+                <?php if (in_array($rolId, [1, 2, 3]) && !$esCerrado): ?>
                     <hr>
                     <h3 class="hd-card-title mb-3" style="font-size:0.85rem;">
                         <i class="bi bi-plus-circle text-accent"></i> Agregar Nota Interna
@@ -272,8 +273,8 @@ function mapBadge(string $val, string $tipo): string {
             </div>
         <?php endif; ?>
 
-        <!-- Actualizar Estatus (Técnico) -->
-        <?php if ($rolId == 2 && !$esCerrado): ?>
+        <!-- Actualizar Estatus (Técnico) — solo En Proceso / Terminado -->
+        <?php if ($rolId == 2 && !$esCerrado && !$enValidacion): ?>
             <div class="hd-card mb-4 fade-in-up delay-3">
                 <div class="hd-card-header">
                     <h2 class="hd-card-title"><i class="bi bi-arrow-repeat text-accent"></i> Actualizar Estatus</h2>
@@ -284,34 +285,47 @@ function mapBadge(string $val, string $tipo): string {
                         <div class="mb-3">
                             <select class="form-select" name="id_estatus" required>
                                 <option value="">— Selecciona estatus —</option>
-                                <?php foreach ($estatus as $est): ?>
-                                    <option value="<?= $est['id'] ?>"
-                                        <?= $ticket['id_estatus'] == $est['id'] ? 'selected' : '' ?>>
-                                        <?= htmlspecialchars($est['nombre_estatus']) ?>
-                                    </option>
-                                <?php endforeach; ?>
+                                <option value="2" <?= $ticket['id_estatus'] == 2 ? 'selected' : '' ?>>En Proceso</option>
+                                <option value="5">Terminado (enviar a validación)</option>
                             </select>
+                            <div class="form-text mt-2" style="font-size:0.74rem; color:var(--text-muted);">
+                                <i class="bi bi-info-circle"></i> Al marcar <strong>Terminado</strong>, el folio pasa a <strong>"Pendiente de Validación"</strong> y se envía a Mesa de Ayuda para su cierre. El técnico no lo cierra.
+                            </div>
                         </div>
                         <button type="submit" class="btn btn-outline-primary btn-sm w-100">
-                            <i class="bi bi-check-circle"></i> Actualizar Estatus
+                            <i class="bi bi-send-check"></i> Marcar Terminado
                         </button>
                     </form>
                 </div>
             </div>
-        <?php endif; ?>
-        <?php if ($_SESSION['rol_id'] == 2 && $ticket['id_estatus'] == 2): ?>
-            <div class="hd-card mb-4 border-success">
-                <div class="hd-card-header"><h3>Finalizar y Validar</h3></div>
+        <?php elseif ($rolId == 2 && $enValidacion): ?>
+            <div class="hd-card mb-4 fade-in-up delay-3">
                 <div class="hd-card-body">
-                    <form action="<?= BASE_URL ?>/index.php?controller=Ticket&action=show&id=<?= $ticket['id'] ?>" method="POST">
-                        <input type="hidden" name="accion" value="asignar_a_mesa">
-                        <select name="id_mesa" class="form-select" required>
-                            <option value="">Selecciona quién validará:</option>
-                            <?php foreach ($personalMesa as $m): ?>
-                                <option value="<?= $m['id'] ?>"><?= htmlspecialchars($m['nombre_completo']) ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                        <button type="submit" class="btn btn-success w-100 mt-2">Enviar a Validación</button>
+                    <div class="alert alert-warning mb-0" style="font-size:0.82rem;">
+                        <i class="bi bi-hourglass-split me-1"></i>
+                        Ya marcaste este folio como <strong>Terminado</strong>. Está en espera de validación y cierre por Mesa de Ayuda.
+                    </div>
+                </div>
+            </div>
+        <?php endif; ?>
+
+        <!-- Actualizar Estatus (Mesa de Ayuda) — solo En Proceso -->
+        <?php if ($rolId == 3 && !$esCerrado): ?>
+            <div class="hd-card mb-4 fade-in-up delay-3">
+                <div class="hd-card-header">
+                    <h2 class="hd-card-title"><i class="bi bi-arrow-repeat text-accent"></i> Actualizar Estatus</h2>
+                </div>
+                <div class="hd-card-body">
+                    <form method="POST" action="<?= BASE_URL ?>/index.php?controller=Ticket&action=actualizarEstatus">
+                        <input type="hidden" name="id_ticket" value="<?= $ticket['id'] ?>">
+                        <div class="mb-3">
+                            <select class="form-select" name="id_estatus" required>
+                                <option value="2" <?= $ticket['id_estatus'] == 2 ? 'selected' : '' ?>>En Proceso</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-outline-primary btn-sm w-100">
+                            <i class="bi bi-check-circle"></i> Marcar En Proceso
+                        </button>
                     </form>
                 </div>
             </div>
