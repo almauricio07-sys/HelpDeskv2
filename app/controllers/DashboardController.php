@@ -39,13 +39,16 @@ class DashboardController {
         if ($rolId === 1) {
             $porTecnico      = $this->modelTicket->contarCargaPorUsuario();
             $statsPorEstatus = $this->modelTicket->contarPorEstatus();
-            $totalUsuarios   = count($this->modelUsuario->obtenerTodos());
+            $totalUsuarios   = count($this->modelUsuario->obtenerTodos(['estado' => 'Activo']));
         }
 
-        // ── Soporte Técnico (Rol 2): sus tickets asignados ─────────────
+        // ── Soporte Técnico (Rol 2): sus tickets asignados + estadísticas ─
         $misTickets = [];
+        $stats      = ['total_asignados' => 0, 'por_hacer' => 0, 'en_validacion' => 0, 'cerrados' => 0];
         if ($rolId === 2) {
-            $misTickets = $this->modelTicket->obtenerTicketsPorTecnico((int) $_SESSION['user_id']);
+            $idTecnico  = (int) $_SESSION['user_id'];
+            $misTickets = $this->modelTicket->obtenerTicketsPorTecnico($idTecnico);
+            $stats      = $this->modelTicket->obtenerEstadisticasTecnico($idTecnico);
         }
 
         // ── Mesa de Ayuda (Rol 3): tickets pendientes + por validar ─────
@@ -53,7 +56,7 @@ class DashboardController {
         $porValidar        = [];
         if ($rolId === 3) {
             $ticketsPendientes = array_slice(
-                $this->modelTicket->obtenerTodosLosTickets(['id_estatus' => 1]),
+                $this->modelTicket->obtenerTodosLosTickets('', 1),
                 0, 15
             );
             $porValidar = $this->modelTicket->obtenerTicketsPorValidar((int) $_SESSION['user_id']);

@@ -128,12 +128,13 @@ $initials = implode('', array_map(
                         <div class="col-12 col-sm-6">
                             <label for="estado" class="form-label">Estado del Perfil</label>
                             <select class="form-select" id="estado" name="estado">
-                                <option value="activo"
-                                    <?= $usuario['estado'] === 'activo'   ? 'selected' : '' ?>>
+                                <?php $estadoActual = strtolower($usuario['estado'] ?? ''); ?>
+                                <option value="Activo"
+                                    <?= $estadoActual === 'activo'   ? 'selected' : '' ?>>
                                     Activo
                                 </option>
-                                <option value="inactivo"
-                                    <?= $usuario['estado'] === 'inactivo' ? 'selected' : '' ?>>
+                                <option value="Inactivo"
+                                    <?= $estadoActual === 'inactivo' ? 'selected' : '' ?>>
                                     Inactivo
                                 </option>
                             </select>

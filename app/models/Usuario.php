@@ -25,7 +25,7 @@ class Usuario {
                     r.nombre_rol
              FROM usuarios u
              INNER JOIN roles r ON u.id_rol = r.id
-             WHERE u.clave_acceso = ? AND u.estado = 'activo'
+             WHERE u.clave_acceso = ? AND u.estado = 'Activo'
              LIMIT 1"
         );
         $stmt->execute([$claveAcceso]);
@@ -71,9 +71,12 @@ class Usuario {
             $params[] = '%' . $filtros['nombre'] . '%';
         }
 
-        if (!empty($filtros['estado']) && in_array($filtros['estado'], ['activo', 'inactivo'])) {
-            $sql .= " AND u.estado = ?";
-            $params[] = $filtros['estado'];
+        if (!empty($filtros['estado'])) {
+            $estadoNorm = ucfirst(strtolower($filtros['estado']));
+            if (in_array($estadoNorm, ['Activo', 'Inactivo'])) {
+                $sql .= " AND u.estado = ?";
+                $params[] = $estadoNorm;
+            }
         }
 
         $sql .= " ORDER BY u.nombre_completo ASC";
@@ -110,7 +113,7 @@ class Usuario {
         $stmt = $this->db->prepare(
             "INSERT INTO usuarios
                 (clave_acceso, nombre_completo, correo_institucional, password_hash, id_rol, estado)
-             VALUES (?, ?, ?, ?, ?, 'activo')"
+             VALUES (?, ?, ?, ?, ?, 'Activo')"
         );
         $stmt->execute([$claveAcceso, $nombreCompleto, $correo, $hash, $idRol]);
         return (int) $this->db->lastInsertId();

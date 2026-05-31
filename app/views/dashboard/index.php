@@ -210,6 +210,7 @@ if ($rolId == 1): ?>
        ═══════════════════════════════════════════════════════════════ */
 elseif ($rolId == 2): ?>
 
+    <!-- Tarjetas de resumen — leen de $stats (obtenerEstadisticasTecnico) -->
     <div class="row g-3 mb-4">
         <div class="col-6 col-md-3 fade-in-up delay-1">
             <div class="stat-card">
@@ -231,9 +232,11 @@ elseif ($rolId == 2): ?>
         </div>
         <div class="col-6 col-md-3 fade-in-up delay-3">
             <div class="stat-card">
-                <div class="stat-icon text-info"><i class="bi bi-send-check"></i></div>
+                <div class="stat-icon" style="background:rgba(14,165,233,.15);color:#0ea5e9;">
+                    <i class="bi bi-send-check"></i>
+                </div>
                 <div>
-                    <div class="stat-value"><?= $miValidacion ?></div>
+                    <div class="stat-value"><?= $stats['en_validacion'] ?? 0 ?></div>
                     <div class="stat-label">En Validación</div>
                 </div>
             </div>
@@ -242,13 +245,14 @@ elseif ($rolId == 2): ?>
             <div class="stat-card">
                 <div class="stat-icon green"><i class="bi bi-check-circle-fill"></i></div>
                 <div>
-                    <div class="stat-value"><?= $miCerrados ?></div>
+                    <div class="stat-value"><?= $stats['cerrados'] ?? 0 ?></div>
                     <div class="stat-label">Cerrados</div>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Tabla de pendientes — lee de $misTickets (obtenerTicketsPorTecnico) -->
     <div class="hd-card fade-in-up">
         <div class="hd-card-header">
             <h2 class="hd-card-title">
@@ -261,29 +265,41 @@ elseif ($rolId == 2): ?>
             </a>
         </div>
         <div class="hd-card-body p-0">
-            <?php if (empty($misTicketsActivos)): ?>
+            <?php if (empty($misTickets)): ?>
                 <div class="empty-state py-4">
                     <i class="bi bi-emoji-smile d-block text-success mb-2" style="font-size:2rem;"></i>
                     <p class="mb-0">¡Sin tickets pendientes por atender en este momento!</p>
                 </div>
             <?php else: ?>
-                <div class="hd-table-wrapper" style="border:none; border-radius:0;">
+                <div class="table-responsive" style="border-radius:0;">
                     <table class="table table-hover align-middle mb-0">
                         <thead>
                             <tr>
                                 <th>Folio</th>
+                                <th class="d-none d-md-table-cell">Descripción</th>
                                 <th>Solicitante</th>
                                 <th>Prioridad</th>
                                 <th>Estatus</th>
-                                <th>Fecha</th>
+                                <th class="d-none d-sm-table-cell">Fecha</th>
                                 <th></th>
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach (array_slice($misTicketsActivos, 0, 6) as $t): ?>
+                            <?php foreach (array_slice($misTickets, 0, 6) as $t): ?>
                                 <tr>
-                                    <td><span class="folio-tag"><?= htmlspecialchars($t['folio']) ?></span></td>
-                                    <td><?= htmlspecialchars($t['solicitante']) ?></td>
+                                    <td>
+                                        <span class="folio-tag"><?= htmlspecialchars($t['folio']) ?></span>
+                                    </td>
+                                    <td class="d-none d-md-table-cell" style="max-width:200px;">
+                                        <span class="text-truncate d-block"
+                                              style="font-size:0.8rem;color:var(--text-muted);"
+                                              title="<?= htmlspecialchars(strip_tags($t['descripcion'])) ?>">
+                                            <?= htmlspecialchars(mb_strimwidth(strip_tags($t['descripcion']), 0, 40, '...')) ?>
+                                        </span>
+                                    </td>
+                                    <td class="text-truncate" style="max-width:130px;font-weight:500;">
+                                        <?= htmlspecialchars($t['solicitante']) ?>
+                                    </td>
                                     <td>
                                         <span class="hd-badge <?= badgePrioridad($t['prioridad']) ?>">
                                             <?= ucfirst(strtolower($t['prioridad'])) ?>
@@ -294,8 +310,12 @@ elseif ($rolId == 2): ?>
                                             <?= htmlspecialchars($t['estatus']) ?>
                                         </span>
                                     </td>
-                                    <td style="font-size:0.78rem; color:var(--text-muted);">
-                                        <?= date('d/m/Y H:i', strtotime($t['fecha_creacion'])) ?>
+                                    <td class="d-none d-sm-table-cell"
+                                        style="font-size:0.78rem;color:var(--text-muted);white-space:nowrap;">
+                                        <?= date('d/m/Y', strtotime($t['fecha_creacion'])) ?>
+                                        <div style="font-size:0.72rem;">
+                                            <?= date('H:i', strtotime($t['fecha_creacion'])) ?> hrs
+                                        </div>
                                     </td>
                                     <td>
                                         <a href="<?= BASE_URL ?>/index.php?controller=Ticket&action=show&id=<?= $t['id'] ?>"
@@ -309,6 +329,8 @@ elseif ($rolId == 2): ?>
                     </table>
                 </div>
             <?php endif; ?>
+        </div>
+    </div>
 
 <?php /* ═══════════════════════════════════════════════════════════════
         MESA DE AYUDA (Rol 3): acciones rápidas y pendientes

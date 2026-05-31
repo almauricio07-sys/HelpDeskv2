@@ -132,6 +132,19 @@ function isActive(string $controller, string $action = ''): string {
 
             </ul>
 
+            <!-- Mobile: nombre + rol dentro del menú desplegado (d-md-none) -->
+            <div class="d-flex d-md-none align-items-center gap-2 mt-2 pt-2 pb-1 ms-1"
+                 style="border-top:1px solid var(--border-subtle);">
+                <div class="user-avatar-sm flex-shrink-0"><?= htmlspecialchars($initials) ?></div>
+                <div class="flex-grow-1 overflow-hidden">
+                    <div class="text-truncate"
+                         style="font-size:0.82rem;color:var(--text-primary);font-weight:500;line-height:1.2;">
+                        <?= htmlspecialchars($nombreUsuario) ?>
+                    </div>
+                    <span class="role-badge"><?= htmlspecialchars($rolNombre) ?></span>
+                </div>
+            </div>
+
             <!-- Lado derecho: info usuario + logout -->
             <div class="d-flex align-items-center gap-3 ms-auto">
                 <div class="user-info-nav d-none d-md-flex">

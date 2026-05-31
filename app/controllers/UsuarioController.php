@@ -141,8 +141,8 @@ class UsuarioController {
         $nombre   = trim($_POST['nombre_completo']  ?? '');
         $correo   = trim($_POST['correo']           ?? '');
         $idRol    = (int) ($_POST['id_rol']         ?? 0);
-        $estado   = in_array($_POST['estado'] ?? '', ['activo', 'inactivo'])
-                    ? $_POST['estado'] : 'activo';
+        $estadoRaw = ucfirst(strtolower($_POST['estado'] ?? ''));
+        $estado    = in_array($estadoRaw, ['Activo', 'Inactivo']) ? $estadoRaw : 'Activo';
         $newPass  = $_POST['nueva_password']        ?? '';
         $newPass2 = $_POST['nueva_password2']       ?? '';
 

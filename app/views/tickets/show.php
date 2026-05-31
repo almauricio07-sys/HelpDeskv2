@@ -88,24 +88,31 @@ function badgePrioShow(string $prioridad): string {
         <h1 class="h4 mb-0">Detalle del Ticket</h1>
     </div>
 
-    <!-- RF_10: Botón "Finalizar Ticket" — Mesa/Coordinador cuando NO está cerrado ni en validación -->
+    <!-- RF_10: Botones de cierre — Mesa/Coordinador -->
     <?php if (in_array($rolId, [1, 3]) && !$esCerrado && !$enValidacion): ?>
         <button type="button" class="btn btn-outline-success shadow-sm"
                 data-bs-toggle="modal" data-bs-target="#modalCerrar">
             <i class="bi bi-check2-circle"></i> Finalizar Ticket
         </button>
     <?php elseif (in_array($rolId, [1, 3]) && $enValidacion): ?>
-        <button type="button" class="btn btn-success"
-                data-bs-toggle="modal" data-bs-target="#modalCerrar">
-            <i class="bi bi-check2-circle"></i> Validar y Cerrar
-        </button>
+        <!-- RF_10 Flujo básico + Flujo Alt. 2a -->
+        <div class="d-flex gap-2 flex-wrap">
+            <button type="button" class="btn btn-success"
+                    data-bs-toggle="modal" data-bs-target="#modalCerrar">
+                <i class="bi bi-check2-circle"></i> Validar y Cerrar
+            </button>
+            <button type="button" class="btn btn-outline-danger"
+                    data-bs-toggle="modal" data-bs-target="#modalRechazar">
+                <i class="bi bi-arrow-counterclockwise"></i> Rechazar y Devolver
+            </button>
+        </div>
     <?php endif; ?>
 </div>
 
 <div class="row g-4">
 
     <!-- ══ Columna principal ══════════════════════════════════════════════ -->
-    <div class="col-12 col-xl-8">
+    <div class="col-12 col-lg-8">
 
         <!-- Descripción del problema -->
         <div class="hd-card mb-4 fade-in-up delay-1">
@@ -207,7 +214,7 @@ function badgePrioShow(string $prioridad): string {
     </div><!-- /columna principal -->
 
     <!-- ══ Sidebar ═══════════════════════════════════════════════════════ -->
-    <div class="col-12 col-xl-4">
+    <div class="col-12 col-lg-4">
 
         <!-- Info del Solicitante -->
         <div class="hd-card mb-4 fade-in-up delay-1">
@@ -402,7 +409,8 @@ function badgePrioShow(string $prioridad): string {
                 </div>
                 <div class="hd-card-body">
                     <form method="POST"
-                          action="<?= BASE_URL ?>/index.php?controller=Ticket&action=actualizarEstatus">
+                          action="<?= BASE_URL ?>/index.php?controller=Ticket&action=actualizarEstatus"
+                          id="formEstatus">
                         <input type="hidden" name="id_ticket" value="<?= $ticket['id'] ?>">
                         <select class="form-select mb-3" name="id_estatus" required>
                             <option value="2" <?= $idEstatus === 2 ? 'selected' : '' ?>>En Proceso</option>
@@ -498,113 +506,166 @@ function badgePrioShow(string $prioridad): string {
 </div>
 <?php endif; ?>
 
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<?php if (in_array($rolId, [1, 3]) && $enValidacion): ?>
+<!-- ══ Modal: RF_10 Flujo Alt. 2a — Rechazar validación ════════════════════ -->
+<div class="modal fade" id="modalRechazar" tabindex="-1" aria-labelledby="modalRechazarLabel">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalRechazarLabel">
+                    <i class="bi bi-arrow-counterclockwise me-2 text-danger"></i>
+                    Rechazar y Devolver a En Proceso
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST"
+                  action="<?= BASE_URL ?>/index.php?controller=Ticket&action=rechazarValidacion">
+                <div class="modal-body">
+                    <input type="hidden" name="id_ticket" value="<?= $ticket['id'] ?>">
+                    <div class="alert alert-warning mb-3" style="font-size:0.82rem;">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        El ticket regresará al estatus <strong>En Proceso</strong>.
+                        La razón quedará registrada como nota interna visible para el técnico.
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label" for="razon_rechazo">
+                            Razón del rechazo <span style="color:var(--danger);">*</span>
+                        </label>
+                        <textarea class="form-control" id="razon_rechazo" name="razon_rechazo"
+                                  rows="3" required
+                                  placeholder="Describe por qué se rechaza el cierre y qué debe corregir el técnico..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-sm"
+                            data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-danger btn-sm">
+                        <i class="bi bi-arrow-counterclockwise"></i> Rechazar y Devolver
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+// ID del ticket inyectado desde PHP — no depende de querySelector ni del DOM
+const HD_TICKET_ID = <?= (int) ($ticket['id'] ?? 0) ?>;
 
-    // ─── 1. MANEJO DE NOTAS INTERNAS (RF_08) ─────────────────────────
-    const formNota = document.getElementById('formNota');
-    if (formNota) {
-        formNota.addEventListener('submit', function (e) {
-            e.preventDefault(); // Evita recargar la página en blanco
+document.addEventListener('DOMContentLoaded', function () {
 
-            const btn = document.getElementById('btnNota');
-            const formData = new FormData(this);
-
-            Swal.fire({
-                title: 'Guardando nota...',
-                allowOutsideClick: false,
-                didOpen: () => { Swal.showLoading(); }
-            });
-
-            fetch(this.action, { method: 'POST', body: formData })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    Swal.fire({
-                        title: '¡Nota guardada!',
-                        text: data.message,
-                        icon: 'success',
-                        timer: 1500,
-                        showConfirmButton: false
-                    }).then(() => window.location.reload());
-                } else {
-                    Swal.fire('Error', data.message, 'error');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                Swal.fire('Error crítico', 'No se pudo conectar al servidor.', 'error');
-            });
+    // Envía POST con application/x-www-form-urlencoded y espera JSON de respuesta
+    function postJSON(url, params) {
+        return fetch(url, {
+            method: 'POST',
+            credentials: 'same-origin',
+            body: params
+        }).then(function (res) {
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return res.json();
         });
     }
 
-    // ─── 2. MANEJO DE CAMBIO DE ESTATUS (RF_09) ──────────────────────
+    // ─── 1. NOTAS INTERNAS (RF_08) ────────────────────────────────────
+    const formNota = document.getElementById('formNota');
+    if (formNota) {
+        formNota.addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            if (HD_TICKET_ID <= 0) {
+                Swal.fire('Error', 'No se pudo identificar el ticket. Recarga la página.', 'error');
+                return;
+            }
+
+            const notaEl = document.getElementById('notaTextarea');
+            const nota   = notaEl ? notaEl.value.trim() : '';
+
+            if (!nota) {
+                Swal.fire('Aviso', 'El comentario no puede estar vacío.', 'warning');
+                return;
+            }
+
+            Swal.fire({ title: 'Guardando nota...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+            const params = new URLSearchParams();
+            params.append('id_ticket', HD_TICKET_ID);
+            params.append('nota', nota);
+
+            postJSON(formNota.action, params)
+                .then(function (data) {
+                    if (data.success) {
+                        Swal.fire({ title: '¡Nota guardada!', text: data.message, icon: 'success', timer: 1500, showConfirmButton: false })
+                            .then(() => window.location.reload());
+                    } else {
+                        Swal.fire('Error', data.message, 'error');
+                    }
+                })
+                .catch(function (err) {
+                    console.error('[formNota]', err);
+                    Swal.fire('Error crítico', 'No se pudo conectar al servidor.', 'error');
+                });
+        });
+    }
+
+    // ─── 2. CAMBIO DE ESTATUS (RF_09) ────────────────────────────────
     const formEstatus = document.getElementById('formEstatus');
     if (formEstatus) {
         formEstatus.addEventListener('submit', function (e) {
-            e.preventDefault(); // Evita recargar la página en blanco
+            e.preventDefault();
 
+            // selectEstatus existe solo en el form de rol 2; en rol 3 se lee por name
             const selectEstatus = document.getElementById('selectEstatus');
-            const formData = new FormData(this);
+            const idEstatusEl   = selectEstatus || formEstatus.elements['id_estatus'];
+            const idEstatusVal  = idEstatusEl ? idEstatusEl.value : '';
 
-            // Validar si eligió "Terminado" (ID 3)
+            const params = new URLSearchParams();
+            params.append('id_ticket', HD_TICKET_ID);
+            params.append('id_estatus', idEstatusVal);
+
             if (selectEstatus && selectEstatus.value === '3') {
                 Swal.fire({
                     title: '¿Enviar a validación?',
-                    text: "El folio desaparecerá de tu bandeja y pasará a Mesa de Ayuda.",
+                    text: 'El folio desaparecerá de tu bandeja y pasará a Mesa de Ayuda.',
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonColor: '#3085d6',
                     cancelButtonColor: '#d33',
-                    confirmButtonText: '<i class="bi bi-send-check"></i> Sí, enviar a Mesa',
+                    confirmButtonText: 'Sí, enviar a Mesa',
                     cancelButtonText: 'Cancelar'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        procesarEstatus(formEstatus.action, formData, true);
-                    }
+                }).then(function (result) {
+                    if (result.isConfirmed) procesarEstatus(formEstatus.action, params, true);
                 });
             } else {
-                // Si eligió otro estatus (Ej. "En proceso"), guardar directo
-                procesarEstatus(formEstatus.action, formData, false);
+                procesarEstatus(formEstatus.action, params, false);
             }
         });
     }
 
-    // Función auxiliar para enviar el estatus al servidor
-    function procesarEstatus(url, formData, esTerminado) {
-        Swal.fire({
-            title: 'Actualizando estatus...',
-            allowOutsideClick: false,
-            didOpen: () => { Swal.showLoading(); }
-        });
+    function procesarEstatus(url, params, esTerminado) {
+        Swal.fire({ title: 'Actualizando estatus...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
-        fetch(url, { method: 'POST', body: formData })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                Swal.fire({
-                    title: '¡Actualizado!',
-                    text: data.message,
-                    icon: 'success',
-                    confirmButtonColor: '#28a745'
-                }).then(() => {
-                    // Lógica del Dashboard: Si se terminó, sacarlo de la vista del ticket
-                    if (esTerminado) {
-                        window.location.href = '<?= BASE_URL ?>/index.php?controller=Ticket&action=misTickets';
-                    } else {
-                        window.location.reload();
-                    }
-                });
-            } else {
-                Swal.fire('Aviso', data.message, 'warning');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            Swal.fire('Error Crítico', 'Hubo un problema de comunicación con el servidor.', 'error');
-        });
+        postJSON(url, params)
+            .then(function (data) {
+                if (data.success) {
+                    Swal.fire({ title: '¡Actualizado!', text: data.message, icon: 'success', confirmButtonColor: '#28a745' })
+                        .then(function () {
+                            if (esTerminado) {
+                                window.location.href = '<?= BASE_URL ?>/index.php?controller=Ticket&action=misTickets';
+                            } else {
+                                window.location.reload();
+                            }
+                        });
+                } else {
+                    Swal.fire('Aviso', data.message, 'warning');
+                }
+            })
+            .catch(function (err) {
+                console.error('[formEstatus]', err);
+                Swal.fire('Error Crítico', 'Hubo un problema de comunicación con el servidor.', 'error');
+            });
     }
 
 });

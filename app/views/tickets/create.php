@@ -228,14 +228,42 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // ─── Efecto de carga al enviar el formulario ───
-    document.getElementById('formTicket').addEventListener('submit', function () {
-        const btn = document.getElementById('btnGuardar');
-        // Validamos si el formulario HTML5 es válido antes de bloquear el botón
-        if(this.checkValidity()) {
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Guardando...';
-            btn.disabled = true;
+    // ─── Validación frontend con SweetAlert2 + efecto de carga ───
+    document.getElementById('formTicket').addEventListener('submit', function(e) {
+        const campos = [
+            { id: 'clave_reportante', nombre: 'Clave del Reportante' },
+            { id: 'nombre_completo',  nombre: 'Nombre Completo'      },
+            { id: 'correo',           nombre: 'Correo Electrónico'   },
+            { id: 'id_departamento',  nombre: 'Departamento'         },
+            { id: 'id_canal',         nombre: 'Canal de Contacto'    },
+            { id: 'descripcion',      nombre: 'Descripción del Problema' },
+        ];
+
+        const vacios = campos.filter(c => {
+            const el = document.getElementById(c.id);
+            return !el || el.value.trim() === '';
+        });
+
+        const prioSeleccionada = document.querySelector('input[name="prioridad"]:checked');
+
+        if (vacios.length > 0 || !prioSeleccionada) {
+            e.preventDefault();
+            const items = vacios.map(c => `<li>${c.nombre}</li>`).join('');
+            const prioItem = !prioSeleccionada ? '<li>Prioridad</li>' : '';
+            Swal.fire({
+                icon: 'warning',
+                title: 'Campos incompletos',
+                html: `<p style="margin-bottom:.5rem;">Por favor completa los siguientes campos:</p>
+                       <ul class="text-start mb-0">${items}${prioItem}</ul>`,
+                confirmButtonText: 'Entendido',
+                confirmButtonColor: '#238636',
+            });
+            return;
         }
+
+        const btn = document.getElementById('btnGuardar');
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Guardando...';
+        btn.disabled = true;
     });
 
     // ─── Magia AJAX: Autocompletado del Solicitante ───

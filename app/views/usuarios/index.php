@@ -168,14 +168,14 @@ function rolBadgeClass(string $rol): string {
                 <?php endif; ?>
             </div>
         <?php else: ?>
-            <div class="hd-table-wrapper" style="border:none; border-radius:0;">
+            <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
                     <thead>
                         <tr>
                             <th>Usuario</th>
-                            <th>Clave</th>
-                            <th>Correo Institucional</th>
-                            <th>Rol Asignado</th>
+                            <th class="d-none d-sm-table-cell">Clave</th>
+                            <th class="d-none d-md-table-cell">Correo</th>
+                            <th>Rol</th>
                             <th>Estado</th>
                             <th class="text-end">Acciones</th>
                         </tr>
@@ -191,25 +191,29 @@ function rolBadgeClass(string $rol): string {
                                 <!-- Nombre + Avatar -->
                                 <td>
                                     <div class="d-flex align-items-center gap-2">
-                                        <div class="user-avatar-sm <?= $isActivo ? '' : 'opacity-50' ?>">
+                                        <div class="user-avatar-sm flex-shrink-0 <?= $isActivo ? '' : 'opacity-50' ?>">
                                             <?= htmlspecialchars($initials) ?>
                                         </div>
-                                        <span style="font-weight:500; <?= $isActivo ? '' : 'color:var(--text-muted);' ?>">
+                                        <span class="text-truncate"
+                                              style="font-weight:500; max-width:160px; <?= $isActivo ? '' : 'color:var(--text-muted);' ?>">
                                             <?= htmlspecialchars($u['nombre_completo']) ?>
                                         </span>
                                     </div>
                                 </td>
 
                                 <!-- Clave de empleado -->
-                                <td>
+                                <td class="d-none d-sm-table-cell">
                                     <span class="folio-tag">
                                         <?= htmlspecialchars($u['clave_acceso']) ?>
                                     </span>
                                 </td>
 
                                 <!-- Correo -->
-                                <td style="font-size:0.82rem; color:var(--text-muted);">
-                                    <?= htmlspecialchars($u['correo_institucional']) ?>
+                                <td class="d-none d-md-table-cell"
+                                    style="font-size:0.82rem; color:var(--text-muted); max-width:200px;">
+                                    <span class="text-truncate d-block">
+                                        <?= htmlspecialchars($u['correo_institucional']) ?>
+                                    </span>
                                 </td>
 
                                 <!-- Rol -->
@@ -227,7 +231,7 @@ function rolBadgeClass(string $rol): string {
                                     </span>
                                 </td>
 
-                                <!-- Acción -->
+                                <!-- Accion -->
                                 <td class="text-end">
                                     <a href="<?= BASE_URL ?>/index.php?controller=Usuario&action=edit&id=<?= $u['id'] ?>"
                                        class="btn btn-outline-primary btn-sm"

@@ -31,12 +31,10 @@ class TicketController {
     // ══════════════════════════════════════════════════════════════════════
 
     public function index(): void {
-        $filtros = [
-            'folio'      => $_GET['folio']      ?? '',
-            'id_estatus' => $_GET['id_estatus'] ?? '',
-        ];
+        $buscar    = trim($_GET['buscar']    ?? '');
+        $idEstatus = (int) ($_GET['id_estatus'] ?? 0);
 
-        $tickets   = $this->modelTicket->obtenerTodosLosTickets($filtros);
+        $tickets   = $this->modelTicket->obtenerTodosLosTickets($buscar, $idEstatus);
         $estatus   = $this->modelTicket->obtenerEstatus();
         $pageTitle = 'Tablero General de Tickets';
 
@@ -51,8 +49,7 @@ class TicketController {
     // ══════════════════════════════════════════════════════════════════════
 
     public function misTickets(): void {
-        // Obtenemos el ID del usuario en sesión
-        $idTecnico = (int) ($_SESSION['usuario_id'] ?? $_SESSION['user_id'] ?? 0);
+        $idTecnico = (int) ($_SESSION['user_id'] ?? 0);
         
         // Filtros del buscador (si aplican)
         $filtros   = ['id_estatus' => $_GET['id_estatus'] ?? ''];
@@ -216,16 +213,11 @@ class TicketController {
         header('Content-Type: application/json');
 
         try {
-            // 2. Validar que vengan los datos por POST (sin redirecciones)
-            // Asumimos que $this->requirePostTicket() hace una redirección, 
-            // así que es mejor validarlo directamente para un entorno AJAX.
-            $idTicket = filter_input(INPUT_POST, 'id_ticket', FILTER_VALIDATE_INT);
-            $nota     = trim($_POST['nota'] ?? '');
-            
-            // Validar que exista la sesión del usuario (ajusta 'usuario_id' si en tu sistema se llama 'user_id')
-            $idUsuario = $_SESSION['usuario_id'] ?? $_SESSION['user_id'] ?? 0;
+            $idTicket  = (int) ($_POST['id_ticket'] ?? 0);
+            $nota      = trim($_POST['nota'] ?? '');
+            $idUsuario = (int) ($_SESSION['user_id'] ?? 0);
 
-            if (!$idTicket || !$idUsuario) {
+            if ($idTicket <= 0 || $idUsuario <= 0) {
                 echo json_encode(['success' => false, 'message' => 'Faltan datos de sesión o ticket.']);
                 exit;
             }
@@ -274,12 +266,11 @@ class TicketController {
     header('Content-Type: application/json');
 
     try {
-        // 2. Recibir datos (Asegúrate de que requirePostTicket no esté haciendo redirecciones internas)
-        $idTicket  = $_POST['id_ticket'] ?? null;
+        $idTicket  = (int) ($_POST['id_ticket'] ?? 0);
         $idEstatus = (int) ($_POST['id_estatus'] ?? 0);
-        $rol       = (int) $_SESSION['rol_id'];
+        $rol       = (int) ($_SESSION['rol_id'] ?? 0);
 
-        if (!$idTicket || !$idEstatus) {
+        if ($idTicket <= 0 || $idEstatus <= 0) {
             echo json_encode(['success' => false, 'message' => 'Faltan datos obligatorios.']);
             exit;
         }
@@ -384,6 +375,31 @@ class TicketController {
         $this->redirectToShow($idTicket);
     }
 
+    /**
+     * RF_10 Flujo Alt. 2a: Mesa/Coordinador rechaza el cierre y devuelve el ticket a "En Proceso".
+     * La razón queda registrada automáticamente como nota interna (RF_08).
+     */
+    public function rechazarValidacion(): void {
+        $idTicket = $this->requirePostTicket([1, 3]);
+        $razon    = trim($_POST['razon_rechazo'] ?? '');
+        $idAutor  = (int) $_SESSION['user_id'];
+
+        if ($razon === '') {
+            $_SESSION['flash_error'] = 'Debes ingresar la razón del rechazo para continuar.';
+            $this->redirectToShow($idTicket);
+            return;
+        }
+
+        try {
+            $this->modelTicket->rechazarValidacion($idTicket, $idAutor, $razon);
+            $_SESSION['flash_success'] = 'Folio devuelto a <strong>En Proceso</strong>. La razón quedó registrada como nota interna.';
+        } catch (\Exception $e) {
+            error_log('Error al rechazar validación: ' . $e->getMessage());
+            $_SESSION['flash_error'] = 'No se pudo procesar el rechazo. Intenta nuevamente.';
+        }
+        $this->redirectToShow($idTicket);
+    }
+
     // ══════════════════════════════════════════════════════════════════════
     //  API — Autocompletar solicitante (AJAX / RF_02)
     // ══════════════════════════════════════════════════════════════════════
@@ -397,18 +413,23 @@ class TicketController {
             return;
         }
 
-        $solicitante = $this->modelTicket->buscarSolicitantePorClave($clave);
-        if (!$solicitante) {
-            echo json_encode(['existe' => false]);
-            return;
-        }
+        try {
+            $solicitante = $this->modelTicket->buscarSolicitantePorClave($clave);
+            if (!$solicitante) {
+                echo json_encode(['existe' => false]);
+                return;
+            }
 
-        echo json_encode([
-            'existe'          => true,
-            'nombre_completo' => $solicitante['nombre_completo'],
-            'correo'          => $solicitante['correo'],
-            'id_departamento' => (int) $solicitante['id_departamento'],
-        ]);
+            echo json_encode([
+                'existe'          => true,
+                'nombre_completo' => $solicitante['nombre_completo'],
+                'correo'          => $solicitante['correo'],
+                'id_departamento' => (int) $solicitante['id_departamento'],
+            ]);
+        } catch (\PDOException $e) {
+            http_response_code(500);
+            echo json_encode(['existe' => false]);
+        }
     }
 
     // ──────────────────────────────────────────────────────────────────────

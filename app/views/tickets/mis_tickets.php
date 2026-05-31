@@ -165,16 +165,16 @@ function badgePrioridadMT(string $prioridad): string {
                 <?php endif; ?>
             </div>
         <?php else: ?>
-            <div class="hd-table-wrapper" style="border:none; border-radius:0;">
+            <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
                     <thead>
                         <tr>
                             <th>Folio</th>
                             <th>Solicitante</th>
-                            <th>Descripción</th>
+                            <th class="d-none d-md-table-cell">Descripción</th>
                             <th>Prioridad</th>
                             <th>Estatus</th>
-                            <th>Fecha</th>
+                            <th class="d-none d-sm-table-cell">Fecha</th>
                             <th class="text-end">Acción</th>
                         </tr>
                     </thead>
@@ -190,7 +190,8 @@ function badgePrioridadMT(string $prioridad): string {
                                 </td>
 
                                 <td>
-                                    <div style="font-weight:500;">
+                                    <div style="font-weight:500; max-width:140px;"
+                                         class="text-truncate">
                                         <?= htmlspecialchars($t['solicitante']) ?>
                                     </div>
                                     <div style="font-size:0.74rem; color:var(--text-muted);">
@@ -198,7 +199,8 @@ function badgePrioridadMT(string $prioridad): string {
                                     </div>
                                 </td>
 
-                                <td style="font-size:0.8rem; max-width:220px; color:var(--text-secondary);">
+                                <td class="d-none d-md-table-cell"
+                                    style="font-size:0.8rem; max-width:220px; color:var(--text-secondary);">
                                     <?= htmlspecialchars(mb_strimwidth(strip_tags($t['descripcion']), 0, 55, '…')) ?>
                                 </td>
 
@@ -214,7 +216,8 @@ function badgePrioridadMT(string $prioridad): string {
                                     </span>
                                 </td>
 
-                                <td style="font-size:0.78rem; color:var(--text-muted); white-space:nowrap;">
+                                <td class="d-none d-sm-table-cell"
+                                    style="font-size:0.78rem; color:var(--text-muted); white-space:nowrap;">
                                     <?= date('d/m/Y', strtotime($t['fecha_creacion'])) ?>
                                     <div style="font-size:0.72rem;">
                                         <?= date('H:i', strtotime($t['fecha_creacion'])) ?> hrs

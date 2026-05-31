@@ -173,34 +173,52 @@ class Ticket {
     //  TICKETS — CONSULTAS
     // ══════════════════════════════════════════════════════════════════════
 
-    public function obtenerTodosLosTickets(array $filtros = []): array {
-        $sql = "SELECT t.id, t.folio, t.descripcion, t.prioridad,
-                       t.fecha_creacion, t.fecha_cierre,
-                       s.nombre_completo AS solicitante,
-                       cc.nombre_canal   AS canal,
-                       es.nombre_estatus AS estatus,
-                       u.nombre_completo AS tecnico
+    /**
+     * RF_04 / RF_05: Listado completo con búsqueda unificada y filtro de estatus.
+     *
+     * $buscar  — término libre que se busca en folio OR nombre del solicitante.
+     * $idEstatus — 0 = todos; >0 = filtrar por ese id de estatus.
+     *
+     * Índices recomendados para RN_06 (< 3 s en producción):
+     *   ALTER TABLE tickets      ADD INDEX idx_folio       (folio);
+     *   ALTER TABLE tickets      ADD INDEX idx_estatus     (id_estatus);
+     *   ALTER TABLE tickets      ADD INDEX idx_fecha_desc  (fecha_creacion DESC);
+     *   ALTER TABLE solicitantes ADD INDEX idx_nombre      (nombre_completo);
+     */
+    public function obtenerTodosLosTickets(string $buscar = '', int $idEstatus = 0): array {
+        $sql = "SELECT t.id,
+                       t.folio,
+                       t.descripcion,
+                       t.prioridad,
+                       t.fecha_creacion,
+                       s.nombre_completo  AS solicitante,
+                       s.clave_reportante AS clave,
+                       cc.nombre_canal    AS canal,
+                       es.nombre_estatus  AS estatus,
+                       u.nombre_completo  AS tecnico
                 FROM tickets t
-                LEFT JOIN solicitantes    s  ON t.id_solicitante = s.id
-                LEFT JOIN canales_contacto cc ON t.id_canal      = cc.id
-                LEFT JOIN estatus_tickets  es ON t.id_estatus    = es.id
-                LEFT JOIN usuarios         u  ON t.id_tecnico    = u.id
+                LEFT JOIN solicitantes     s  ON t.id_solicitante = s.id
+                LEFT JOIN canales_contacto cc ON t.id_canal       = cc.id
+                LEFT JOIN estatus_tickets  es ON t.id_estatus     = es.id
+                LEFT JOIN usuarios         u  ON t.id_tecnico     = u.id
                 WHERE 1=1";
         $params = [];
 
-        if (!empty($filtros['folio'])) {
-            $sql     .= " AND t.folio LIKE ?";
-            $params[] = '%' . $filtros['folio'] . '%';
+        if ($buscar !== '') {
+            $like     = '%' . $buscar . '%';
+            $sql     .= " AND (t.folio LIKE ? OR s.nombre_completo LIKE ?)";
+            $params[] = $like;
+            $params[] = $like;
         }
-        if (isset($filtros['id_estatus']) && $filtros['id_estatus'] !== '') {
+        if ($idEstatus > 0) {
             $sql     .= " AND t.id_estatus = ?";
-            $params[] = (int) $filtros['id_estatus'];
+            $params[] = $idEstatus;
         }
 
         $sql .= " ORDER BY t.fecha_creacion DESC";
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
-        return $stmt->fetchAll();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     /**
@@ -347,13 +365,39 @@ class Ticket {
     /**
      * Actualiza el estatus de un ticket.
      * Registra fecha_cierre solo cuando el ticket llega a "Cerrado" (id=5).
+     * Se usan dos queries distintas para evitar concatenación de SQL dinámico.
      */
     public function actualizarEstatus(int $idTicket, int $idEstatus): bool {
-        $fechaCierre = ($idEstatus === 5) ? ', fecha_cierre = NOW()' : '';
-        $stmt = $this->db->prepare(
-            "UPDATE tickets SET id_estatus = ? {$fechaCierre} WHERE id = ?"
-        );
+        if ($idEstatus === 5) {
+            $stmt = $this->db->prepare(
+                "UPDATE tickets SET id_estatus = ?, fecha_cierre = NOW() WHERE id = ?"
+            );
+        } else {
+            $stmt = $this->db->prepare(
+                "UPDATE tickets SET id_estatus = ? WHERE id = ?"
+            );
+        }
         return $stmt->execute([$idEstatus, $idTicket]);
+    }
+
+    /**
+     * RF_10 Flujo Alt. 2a: Mesa rechaza el cierre y devuelve el ticket a "En Proceso" (id=2).
+     * La razón queda registrada como nota interna (RF_08) para trazabilidad.
+     */
+    public function rechazarValidacion(int $idTicket, int $idAutor, string $razon): bool {
+        $this->db->beginTransaction();
+        try {
+            $stmt = $this->db->prepare("UPDATE tickets SET id_estatus = 2 WHERE id = ?");
+            $stmt->execute([$idTicket]);
+            $this->agregarNota($idTicket, $idAutor, 'Validación rechazada — Razón: ' . $razon);
+            $this->db->commit();
+            return true;
+        } catch (\Exception $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $e;
+        }
     }
 
     // ══════════════════════════════════════════════════════════════════════
