@@ -6,15 +6,15 @@
  * RF_01: Registro de solicitudes.
  * RF_04: Visualización general.
  * RF_05: Filtros dinámicos.
- * RF_06: Mis folios asignados.
- * RF_07: Asignación de técnico.
- * RF_08: Notas internas.
- * RF_09: Actualización de estatus.
- * RF_10: Finalización/cierre de ticket.
+ * RF_06: Mis folios asignados (Técnico).
+ * RF_07: Asignación de técnico (Mesa/Coordinador).
+ * RF_08: Notas internas / Comentarios Técnicos.
+ * RF_09: Actualización de estatus + reasignación automática a Mesa.
+ * RF_10: Cierre definitivo (Mesa/Coordinador).
  *
- * Roles (helpdesk_db): 1=Coordinador | 2=Soporte Técnico | 3=Mesa de Ayuda
- * Estatus:  1=Pendiente de Asignación | 2=En Proceso | 3=Terminado
- *           4=Pendiente de Validación | 5=Cerrado
+ * Roles:   1=Coordinador | 2=Soporte Técnico | 3=Mesa de Ayuda
+ * Estatus: 1=Pendiente de Asignación | 2=En Proceso | 3=Terminado
+ *          4=Pendiente de Validación  | 5=Cerrado
  */
 class TicketController {
 
@@ -44,16 +44,31 @@ class TicketController {
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    //  RF_06 — Mis folios (Técnico)
+    //  RF_06 — Mis Folios Asignados (Técnico)
+    //
+    //  La consulta filtra estrictamente por id_tecnico = id del usuario en
+    //  sesión, garantizando que cada técnico solo vea sus propios tickets.
     // ══════════════════════════════════════════════════════════════════════
 
     public function misTickets(): void {
-        $idTecnico = (int) $_SESSION['user_id'];
+        // Obtenemos el ID del usuario en sesión
+        $idTecnico = (int) ($_SESSION['usuario_id'] ?? $_SESSION['user_id'] ?? 0);
+        
+        // Filtros del buscador (si aplican)
         $filtros   = ['id_estatus' => $_GET['id_estatus'] ?? ''];
+        
+        // 1. Obtenemos los tickets (para la tabla)
         $tickets   = $this->modelTicket->obtenerTicketsPorTecnico($idTecnico, $filtros);
+        
+        // 2. Obtenemos los estatus (para el select del filtro)
         $estatus   = $this->modelTicket->obtenerEstatus();
-
+        
+        // 3. NUEVO: Obtenemos las estadísticas reales (para las 4 tarjetas superiores)
+        $stats     = $this->modelTicket->obtenerEstadisticasTecnico($idTecnico);
+        
         $pageTitle = 'Mis Folios Asignados';
+
+        // 4. Inyectamos la variable $stats hacia la vista
         require BASE_PATH . '/app/views/tickets/mis_tickets.php';
     }
 
@@ -76,11 +91,10 @@ class TicketController {
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    //  RF_01 — Formulario de creación
+    //  RF_01 — Formulario de creación (Mesa/Coordinador)
     // ══════════════════════════════════════════════════════════════════════
 
     public function create(): void {
-        // Mesa de Ayuda (3) y Coordinador (1) pueden registrar tickets
         if (!in_array($_SESSION['rol_id'], [1, 3])) {
             http_response_code(403);
             require BASE_PATH . '/app/views/errors/403.php';
@@ -95,7 +109,7 @@ class TicketController {
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    //  RF_01 y RF_03 — Almacenamiento (Upsert solicitante + ticket)
+    //  RF_01 y RF_03 — Almacenamiento
     // ══════════════════════════════════════════════════════════════════════
 
     public function store(): void {
@@ -115,7 +129,7 @@ class TicketController {
         $correo            = trim($_POST['correo']             ?? '');
         $idDepartamento    = (int) ($_POST['id_departamento']  ?? 0);
         $idCanal           = (int) ($_POST['id_canal']         ?? 0);
-        $prioridad         = $_POST['prioridad']               ?? 'Media';
+        $prioridad         = ucfirst(strtolower($_POST['prioridad'] ?? 'Media'));
         $descripcion       = trim($_POST['descripcion']        ?? '');
 
         if ($claveReportante === '' || $nombreSolicitante === '' || $correo === ''
@@ -131,7 +145,7 @@ class TicketController {
             exit;
         }
 
-        if (!in_array(ucfirst(strtolower($prioridad)), ['Alta', 'Media', 'Baja'], true)) {
+        if (!in_array($prioridad, ['Alta', 'Media', 'Baja'], true)) {
             $prioridad = 'Media';
         }
 
@@ -153,7 +167,7 @@ class TicketController {
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    //  RF_07, RF_08, RF_09, RF_10 — Detalle y gestión
+    //  RF_07, RF_08, RF_09, RF_10 — Detalle del ticket
     // ══════════════════════════════════════════════════════════════════════
 
     public function show(): void {
@@ -177,6 +191,7 @@ class TicketController {
     /**
      * RF_07: Asignar (o reasignar) un técnico.
      * Permitido a Mesa de Ayuda (3) y Coordinador (1).
+     * El usuario que asigna queda como responsable de validación (id_mesa_asignada).
      */
     public function asignar(): void {
         $idTicket  = $this->requirePostTicket([1, 3]);
@@ -191,69 +206,160 @@ class TicketController {
         $this->redirectToShow($idTicket);
     }
 
-    /**
-     * RF_08: Agregar nota interna.
-     * Permitido a todos los roles.
+/**
+     * RF_08: Agregar comentario técnico (nota interna) al ticket.
+     * Visible solo para el equipo interno (roles 1, 2, 3).
+     * La nota queda vinculada al id_usuario de la sesión activa.
      */
     public function agregarNota(): void {
-        $idTicket = $this->requirePostTicket([1, 2, 3]);
-        $nota     = trim($_POST['nota'] ?? '');
+        // 1. Forzar a que la respuesta siempre sea JSON para que SweetAlert2 la entienda
+        header('Content-Type: application/json');
 
-        if ($nota === '') {
-            $_SESSION['flash_error'] = 'La nota no puede estar vacía.';
-        } elseif ($this->modelTicket->agregarNota($idTicket, (int) $_SESSION['user_id'], $nota)) {
-            $_SESSION['flash_success'] = 'Nota interna publicada.';
-        } else {
-            $_SESSION['flash_error'] = 'No se pudo guardar la nota.';
+        try {
+            // 2. Validar que vengan los datos por POST (sin redirecciones)
+            // Asumimos que $this->requirePostTicket() hace una redirección, 
+            // así que es mejor validarlo directamente para un entorno AJAX.
+            $idTicket = filter_input(INPUT_POST, 'id_ticket', FILTER_VALIDATE_INT);
+            $nota     = trim($_POST['nota'] ?? '');
+            
+            // Validar que exista la sesión del usuario (ajusta 'usuario_id' si en tu sistema se llama 'user_id')
+            $idUsuario = $_SESSION['usuario_id'] ?? $_SESSION['user_id'] ?? 0;
+
+            if (!$idTicket || !$idUsuario) {
+                echo json_encode(['success' => false, 'message' => 'Faltan datos de sesión o ticket.']);
+                exit;
+            }
+
+            if ($nota === '') {
+                echo json_encode(['success' => false, 'message' => 'El comentario no puede estar vacío.']);
+                exit;
+            }
+
+            // 3. Insertar a través del modelo
+            $resultado = $this->modelTicket->agregarNota($idTicket, (int) $idUsuario, $nota);
+
+            if ($resultado) {
+                echo json_encode(['success' => true, 'message' => 'Comentario técnico publicado exitosamente.']);
+            } else {
+                throw new \Exception('No se pudo guardar el comentario en la base de datos.');
+            }
+            exit;
+
+        } catch (\PDOException $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Error BD: ' . $e->getMessage()]);
+            exit;
+        } catch (\Exception $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Error Sistema: ' . $e->getMessage()]);
+            exit;
         }
-        $this->redirectToShow($idTicket);
     }
 
     /**
-     * RF_09 / RF_10: Actualizar el estatus del ticket.
+     * RF_09: Actualizar el estatus del ticket.
      *
      * Reglas de negocio:
-     *   - Soporte Técnico (2): puede marcar "En Proceso" (2) o "Terminado" (3).
-     *       Al marcar "Terminado" NO cierra el ticket: lo envía a
-     *       "Pendiente de Validación" (id=4) para que Mesa de Ayuda lo revise.
-     *   - Mesa de Ayuda (3): solo puede marcar "En Proceso" (2).
-     *       El cierre definitivo se hace con la acción cerrar() (RF_10).
+     *   - Soporte Técnico (2): "En Proceso" (2) o "Terminado" (3).
+     *       Al marcar "Terminado":
+     *         a) RF_09 Flujo Alt. 4a: bloquear si no hay técnico asignado.
+     *         b) Reasignación automática: si id_mesa_asignada es NULL, se
+     *            asigna al primer usuario de Mesa activo (con COALESCE).
+     *         c) Transacción BEGIN/COMMIT para garantizar atomicidad.
+     *   - Mesa de Ayuda (3): solo "En Proceso" (2).
+     *       El cierre definitivo usa la acción cerrar() (RF_10).
      */
     public function actualizarEstatus(): void {
-        $idTicket  = $this->requirePostTicket([2, 3]);
+    // 1. Forzar a que la respuesta siempre sea JSON para evitar errores 500 feos
+    header('Content-Type: application/json');
+
+    try {
+        // 2. Recibir datos (Asegúrate de que requirePostTicket no esté haciendo redirecciones internas)
+        $idTicket  = $_POST['id_ticket'] ?? null;
         $idEstatus = (int) ($_POST['id_estatus'] ?? 0);
         $rol       = (int) $_SESSION['rol_id'];
 
-        // Soporte Técnico puede elegir En Proceso (2) o Terminado (3)
-        // Mesa de Ayuda solo puede elegir En Proceso (2)
-        $permitidos = ($rol === 2) ? [2, 3] : [2];
+        if (!$idTicket || !$idEstatus) {
+            echo json_encode(['success' => false, 'message' => 'Faltan datos obligatorios.']);
+            exit;
+        }
+
+        // 3. Validar permisos: Técnico(2) puede 2 o 3. Mesa(3) puede 2 o 4 (Cerrar).
+        $permitidos = ($rol === 2) ? [2, 3] : [2, 4];
 
         if (!in_array($idEstatus, $permitidos, true)) {
-            $_SESSION['flash_error'] = 'El estatus seleccionado no está permitido para tu rol.';
-            $this->redirectToShow($idTicket);
-            return;
+            echo json_encode(['success' => false, 'message' => 'El estatus seleccionado no está permitido para tu rol.']);
+            exit;
         }
 
-        // Técnico marca "Terminado" (id=3) → envía a Pendiente de Validación (id=4)
+        // ── RF_09: Técnico marca "Terminado" (id=3) ──────────────────────
         if ($rol === 2 && $idEstatus === 3) {
-            $ok = $this->modelTicket->enviarAValidacion($idTicket);
-            $_SESSION[$ok ? 'flash_success' : 'flash_error'] = $ok
-                ? 'Ticket marcado como Terminado y enviado a Mesa de Ayuda para validación.'
-                : 'No se pudo enviar el ticket a validación.';
+            $ticketActual = $this->modelTicket->obtenerTicketPorId($idTicket);
+
+            // Flujo alternativo 4a: sin técnico asignado, bloquear cambio (RF_07)
+            if (empty($ticketActual['id_tecnico'])) {
+                echo json_encode(['success' => false, 'message' => 'Error: Debe asignar un especialista antes de cambiar el estado.']);
+                exit;
+            }
+
+            // Iniciar Transacción SQL
+            $this->modelTicket->beginTransaction();
+
+            // Reasignación automática: obtener Mesa de fallback si id_mesa_asignada es NULL
+            $idMesaFallback = empty($ticketActual['id_mesa_asignada'])
+                ? $this->modelTicket->obtenerPrimerMesaActiva() 
+                : $ticketActual['id_mesa_asignada'];
+
+            // Ejecutar envío a validación
+            $ok = $this->modelTicket->enviarAValidacion($idTicket, $idMesaFallback);
+            
+            if (!$ok) {
+                throw new \Exception('La actualización en la base de datos falló.');
+            }
+
+            $this->modelTicket->commit();
+            
+            echo json_encode([
+                'success' => true, 
+                'message' => 'Ticket marcado como Terminado y devuelto a Mesa de Ayuda.'
+            ]);
+            exit;
+
+        // ── Cambio de estatus normal (Ej: "En Proceso") ────────────
         } else {
             $ok = $this->modelTicket->actualizarEstatus($idTicket, $idEstatus);
-            $_SESSION[$ok ? 'flash_success' : 'flash_error'] = $ok
-                ? 'Estatus actualizado.'
-                : 'No se pudo actualizar el estatus.';
+            
+            if ($ok) {
+                echo json_encode(['success' => true, 'message' => 'Estatus actualizado correctamente.']);
+            } else {
+                throw new \Exception('No se pudo actualizar el estatus.');
+            }
+            exit;
         }
-        $this->redirectToShow($idTicket);
+
+        // 4. ATrapar los errores para que no colapse el servidor (Adiós Error 500)
+        } catch (\PDOException $e) {
+            if ($this->modelTicket->inTransaction()) {
+                $this->modelTicket->rollBack();
+            }
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Error BD: ' . $e->getMessage()]);
+            exit;
+
+        } catch (\Exception $e) {
+            if ($this->modelTicket->inTransaction()) {
+                $this->modelTicket->rollBack();
+            }
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Error Sistema: ' . $e->getMessage()]);
+            exit;
+        }
     }
 
     /**
      * RF_10: Cierre definitivo. Exclusivo de Mesa de Ayuda (3) y Coordinador (1).
      *
-     * Transacción: marca "Cerrado" (id=5) + registra nota automática "Validado".
-     * Si cualquier operación falla, se revierte todo para no dejar inconsistencias.
+     * Transacción: marca "Cerrado" (id=5) + registra nota automática de cierre.
      */
     public function cerrar(): void {
         $idTicket = $this->requirePostTicket([1, 3]);
@@ -262,7 +368,7 @@ class TicketController {
         try {
             $this->modelTicket->beginTransaction();
 
-            $this->modelTicket->actualizarEstatus($idTicket, 5); // Cerrado (id=5)
+            $this->modelTicket->actualizarEstatus($idTicket, 5);
             $this->modelTicket->agregarNota($idTicket, $idAutor, 'Ticket validado y cerrado por Mesa de Ayuda.');
 
             $this->modelTicket->commit();
@@ -279,7 +385,7 @@ class TicketController {
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    //  API auxiliar — Autocompletar solicitante (AJAX / RF_02)
+    //  API — Autocompletar solicitante (AJAX / RF_02)
     // ══════════════════════════════════════════════════════════════════════
 
     public function buscarSolicitanteJson(): void {

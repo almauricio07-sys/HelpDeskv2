@@ -1,10 +1,14 @@
 <?php
 /**
  * Vista: Detalle del Ticket
+ *
  * RF_07 — Asignar técnico (Mesa/Coordinador)
- * RF_08 — Agregar notas internas (Técnico)
- * RF_09 — Actualizar estatus (Técnico)
+ * RF_08 — Comentarios Técnicos / Notas internas (equipo interno)
+ * RF_09 — Actualizar estatus (Soporte Técnico / Mesa de Ayuda)
  * RF_10 — Cerrar ticket (Mesa/Coordinador)
+ *
+ * Estatus: 1=Pendiente Asignación | 2=En Proceso | 3=Terminado
+ *          4=Pendiente Validación  | 5=Cerrado
  */
 require BASE_PATH . '/app/views/layouts/header.php';
 
@@ -12,20 +16,24 @@ $flashSuccess = $_SESSION['flash_success'] ?? null;
 $flashError   = $_SESSION['flash_error']   ?? null;
 unset($_SESSION['flash_success'], $_SESSION['flash_error']);
 
-$rolId    = $_SESSION['rol_id'];
-$esCerrado = strtolower($ticket['estatus']) === 'cerrado';
-$enValidacion = (int)($ticket['id_estatus'] ?? 0) === 5; // Pendiente de Validación
+$rolId          = (int) $_SESSION['rol_id'];
+$idEstatus      = (int) ($ticket['id_estatus'] ?? 0);
+$esCerrado      = $idEstatus === 5;
+$enValidacion   = $idEstatus === 4;
 
-function mapBadge(string $val, string $tipo): string {
-    if ($tipo === 'estatus') {
-        return match (strtolower($val)) {
-            'abierto'    => 'badge-abierto',
-            'en proceso' => 'badge-proceso',
-            'cerrado'    => 'badge-cerrado',
-            default      => 'badge-pendiente',
-        };
-    }
-    return match (strtolower($val)) {
+// ── Helpers de badge ──────────────────────────────────────────────────────
+function badgeEstShow(string $estatus): string {
+    return match (strtolower(trim($estatus))) {
+        'pendiente de asignación' => 'badge-pendiente',
+        'en proceso'              => 'badge-proceso',
+        'terminado'               => 'badge-media',
+        'pendiente de validación' => 'badge-abierto',
+        'cerrado'                 => 'badge-cerrado',
+        default                   => 'badge-pendiente',
+    };
+}
+function badgePrioShow(string $prioridad): string {
+    return match (strtolower(trim($prioridad))) {
         'alta'  => 'badge-alta',
         'media' => 'badge-media',
         'baja'  => 'badge-baja',
@@ -36,9 +44,13 @@ function mapBadge(string $val, string $tipo): string {
 
 <!-- Breadcrumb -->
 <div class="hd-breadcrumb fade-in-up">
-    <a href="<?= BASE_URL ?>/index.php?controller=Dashboard&action=index"><i class="bi bi-house-fill"></i></a>
+    <a href="<?= BASE_URL ?>/index.php?controller=Dashboard&action=index">
+        <i class="bi bi-house-fill"></i>
+    </a>
     <i class="bi bi-chevron-right" style="font-size:.7rem;"></i>
-    <a href="<?= BASE_URL ?>/index.php?controller=Ticket&action=<?= $rolId == 2 ? 'misTickets' : 'index' ?>">Tickets</a>
+    <a href="<?= BASE_URL ?>/index.php?controller=Ticket&action=<?= $rolId === 2 ? 'misTickets' : 'index' ?>">
+        <?= $rolId === 2 ? 'Mis Folios' : 'Tickets' ?>
+    </a>
     <i class="bi bi-chevron-right" style="font-size:.7rem;"></i>
     <span class="folio-tag"><?= htmlspecialchars($ticket['folio']) ?></span>
 </div>
@@ -46,35 +58,46 @@ function mapBadge(string $val, string $tipo): string {
 <!-- Flash -->
 <?php if ($flashSuccess): ?>
     <div class="alert alert-success alert-dismissible d-flex align-items-center gap-2 mb-4 fade-in-up">
-        <i class="bi bi-check-circle-fill"></i><span><?= $flashSuccess ?></span>
+        <i class="bi bi-check-circle-fill"></i>
+        <span><?= $flashSuccess ?></span>
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
 <?php endif; ?>
 <?php if ($flashError): ?>
     <div class="alert alert-danger alert-dismissible d-flex align-items-center gap-2 mb-4 fade-in-up">
-        <i class="bi bi-exclamation-circle-fill"></i><span><?= htmlspecialchars($flashError) ?></span>
+        <i class="bi bi-exclamation-circle-fill"></i>
+        <span><?= htmlspecialchars($flashError) ?></span>
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
 <?php endif; ?>
 
-<!-- Encabezado -->
+<!-- Encabezado del ticket -->
 <div class="d-flex align-items-start justify-content-between mb-4 flex-wrap gap-2 fade-in-up">
     <div>
-        <div class="d-flex align-items-center gap-2 mb-1">
-            <span class="folio-tag" style="font-size:0.9rem;"><?= htmlspecialchars($ticket['folio']) ?></span>
-            <span class="hd-badge <?= mapBadge($ticket['estatus'], 'estatus') ?>">
+        <div class="d-flex align-items-center flex-wrap gap-2 mb-1">
+            <span class="folio-tag" style="font-size:0.9rem;">
+                <?= htmlspecialchars($ticket['folio']) ?>
+            </span>
+            <span class="hd-badge <?= badgeEstShow($ticket['estatus']) ?>">
                 <?= htmlspecialchars($ticket['estatus']) ?>
             </span>
-            <span class="hd-badge <?= mapBadge($ticket['prioridad'], 'prioridad') ?>">
-                <i class="bi bi-flag-fill"></i> <?= ucfirst($ticket['prioridad']) ?>
+            <span class="hd-badge <?= badgePrioShow($ticket['prioridad']) ?>">
+                <i class="bi bi-flag-fill"></i> <?= ucfirst(strtolower($ticket['prioridad'])) ?>
             </span>
         </div>
         <h1 class="h4 mb-0">Detalle del Ticket</h1>
     </div>
-    <!-- Cerrar ticket — Mesa/Coordinador -->
-    <?php if (in_array($rolId, [1, 3]) && !$esCerrado): ?>
-        <button type="button" class="btn btn-outline-success shadow-sm" data-bs-toggle="modal" data-bs-target="#modalCerrar">
+
+    <!-- RF_10: Botón "Finalizar Ticket" — Mesa/Coordinador cuando NO está cerrado ni en validación -->
+    <?php if (in_array($rolId, [1, 3]) && !$esCerrado && !$enValidacion): ?>
+        <button type="button" class="btn btn-outline-success shadow-sm"
+                data-bs-toggle="modal" data-bs-target="#modalCerrar">
             <i class="bi bi-check2-circle"></i> Finalizar Ticket
+        </button>
+    <?php elseif (in_array($rolId, [1, 3]) && $enValidacion): ?>
+        <button type="button" class="btn btn-success"
+                data-bs-toggle="modal" data-bs-target="#modalCerrar">
+            <i class="bi bi-check2-circle"></i> Validar y Cerrar
         </button>
     <?php endif; ?>
 </div>
@@ -84,63 +107,86 @@ function mapBadge(string $val, string $tipo): string {
     <!-- ══ Columna principal ══════════════════════════════════════════════ -->
     <div class="col-12 col-xl-8">
 
-        <!-- Descripción -->
+        <!-- Descripción del problema -->
         <div class="hd-card mb-4 fade-in-up delay-1">
             <div class="hd-card-header">
-                <h2 class="hd-card-title"><i class="bi bi-chat-left-text text-accent"></i> Descripción del Problema</h2>
+                <h2 class="hd-card-title">
+                    <i class="bi bi-chat-left-text text-accent"></i> Descripción del Problema
+                </h2>
             </div>
             <div class="hd-card-body">
-                <p style="line-height:1.8; color:var(--text-primary); margin:0; white-space:pre-wrap;"><?= nl2br(htmlspecialchars($ticket['descripcion'])) ?></p>
+                <p style="line-height:1.8; color:var(--text-primary); margin:0; white-space:pre-wrap;">
+                    <?= nl2br(htmlspecialchars($ticket['descripcion'])) ?>
+                </p>
             </div>
         </div>
 
-        <!-- Notas internas -->
+        <!-- RF_08: Comentarios Técnicos (Notas Internas) -->
+        <!-- Visibles exclusivamente para el equipo de soporte (roles 1, 2, 3).
+             Un perfil de Solicitante jamás accede a esta sección (CU RF_08 Flujo Alt. 2a). -->
         <div class="hd-card fade-in-up delay-2">
             <div class="hd-card-header">
                 <h2 class="hd-card-title">
                     <i class="bi bi-sticky text-accent"></i>
-                    Notas Internas
-                    <span class="hd-badge badge-abierto ms-1"><?= count($notas) ?></span>
+                    Comentarios Técnicos
+                    <span class="hd-badge badge-abierto ms-1"
+                          style="font-size:0.65rem;"><?= count($notas) ?></span>
                 </h2>
             </div>
             <div class="hd-card-body">
 
-                <!-- Lista de notas -->
+                <!-- Historial de notas -->
                 <?php if (empty($notas)): ?>
                     <div class="empty-state py-3">
-                        <i class="bi bi-sticky d-block" style="font-size:1.8rem;"></i>
-                        <p style="font-size:0.82rem;">Sin notas internas aún.</p>
+                        <i class="bi bi-sticky d-block mb-2" style="font-size:1.8rem; color:var(--text-muted);"></i>
+                        <p style="font-size:0.82rem; color:var(--text-muted); margin:0;">
+                            Sin comentarios técnicos aún. Sé el primero en documentar el avance.
+                        </p>
                     </div>
                 <?php else: ?>
-                    <div class="mb-4">
+                    <div class="mb-3">
                         <?php foreach ($notas as $nota): ?>
                             <div class="nota-item">
                                 <div class="nota-meta">
                                     <i class="bi bi-person-circle"></i>
-                                    <strong style="color:var(--text-secondary);"><?= htmlspecialchars($nota['tecnico']) ?></strong>
-                                    <span class="ms-auto">
+                                    <strong style="color:var(--text-secondary);">
+                                        <?= htmlspecialchars($nota['tecnico']) ?>
+                                    </strong>
+                                    <span class="hd-badge ms-1"
+                                          style="font-size:0.62rem; background:rgba(255,255,255,0.06); color:var(--text-muted);">
+                                        <?= htmlspecialchars($nota['nombre_rol'] ?? '') ?>
+                                    </span>
+                                    <span class="ms-auto" style="font-size:0.75rem; color:var(--text-muted);">
                                         <i class="bi bi-clock me-1"></i>
                                         <?= date('d/m/Y H:i', strtotime($nota['fecha_registro'])) ?>
                                     </span>
                                 </div>
-                                <p class="nota-texto mb-0"><?= nl2br(htmlspecialchars($nota['nota'])) ?></p>
+                                <p class="nota-texto mb-0">
+                                    <?= nl2br(htmlspecialchars($nota['nota'])) ?>
+                                </p>
                             </div>
                         <?php endforeach; ?>
                     </div>
                 <?php endif; ?>
 
-                <!-- Formulario de nueva nota (solo Técnico) -->
-                <?php if (in_array($rolId, [1, 2, 3]) && !$esCerrado): ?>
-                    <hr>
-                    <h3 class="hd-card-title mb-3" style="font-size:0.85rem;">
-                        <i class="bi bi-plus-circle text-accent"></i> Agregar Nota Interna
+                <!-- Formulario RF_08 — oculto si el ticket está cerrado -->
+                <?php if (!$esCerrado): ?>
+                    <hr style="border-color:rgba(255,255,255,0.07);">
+                    <h3 style="font-size:0.82rem; font-weight:600; color:var(--text-secondary); margin-bottom:10px;">
+                        <i class="bi bi-plus-circle text-accent me-1"></i> Agregar Comentario Técnico
                     </h3>
-                    <form method="POST" action="<?= BASE_URL ?>/index.php?controller=Ticket&action=agregarNota" id="formNota">
+                    <form method="POST"
+                          action="<?= BASE_URL ?>/index.php?controller=Ticket&action=agregarNota"
+                          id="formNota">
                         <input type="hidden" name="id_ticket" value="<?= $ticket['id'] ?>">
                         <div class="mb-3">
                             <textarea class="form-control" name="nota" rows="4"
-                                      placeholder="Escribe una nota sobre las acciones realizadas, diagnóstico, avances..."
+                                      placeholder="Describe las acciones realizadas, diagnóstico, avances o piezas utilizadas..."
                                       required id="notaTextarea"></textarea>
+                            <div class="form-text" style="font-size:0.72rem; color:var(--text-muted);">
+                                <i class="bi bi-shield-lock me-1"></i>
+                                Visible solo para el equipo interno de soporte.
+                            </div>
                         </div>
                         <div class="d-flex justify-content-end">
                             <button type="submit" class="btn btn-primary btn-sm" id="btnNota">
@@ -148,9 +194,10 @@ function mapBadge(string $val, string $tipo): string {
                             </button>
                         </div>
                     </form>
-                <?php elseif ($esCerrado): ?>
-                    <div class="alert alert-warning mb-0" style="font-size:0.82rem;">
-                        <i class="bi bi-lock-fill me-1"></i> Este ticket está cerrado. No se pueden agregar más notas.
+                <?php else: ?>
+                    <div class="alert alert-secondary mb-0" style="font-size:0.82rem;">
+                        <i class="bi bi-lock-fill me-1"></i>
+                        Ticket cerrado — historial de comentarios en solo lectura.
                     </div>
                 <?php endif; ?>
 
@@ -159,49 +206,55 @@ function mapBadge(string $val, string $tipo): string {
 
     </div><!-- /columna principal -->
 
-    <!-- ══ Sidebar de información ═════════════════════════════════════════ -->
+    <!-- ══ Sidebar ═══════════════════════════════════════════════════════ -->
     <div class="col-12 col-xl-4">
 
         <!-- Info del Solicitante -->
         <div class="hd-card mb-4 fade-in-up delay-1">
             <div class="hd-card-header">
-                <h2 class="hd-card-title"><i class="bi bi-person-circle text-accent"></i> Solicitante</h2>
+                <h2 class="hd-card-title">
+                    <i class="bi bi-person-circle text-accent"></i> Solicitante
+                </h2>
             </div>
             <div class="hd-card-body">
                 <div class="d-flex flex-column gap-2">
                     <div class="d-flex align-items-start gap-2">
                         <i class="bi bi-person mt-1" style="color:var(--text-muted); width:16px;"></i>
                         <div>
-                            <div style="font-size:0.75rem; color:var(--text-muted);">Nombre</div>
+                            <div style="font-size:0.73rem; color:var(--text-muted);">Nombre</div>
                             <div style="font-weight:500;"><?= htmlspecialchars($ticket['solicitante']) ?></div>
                         </div>
                     </div>
                     <div class="d-flex align-items-start gap-2">
                         <i class="bi bi-id-card mt-1" style="color:var(--text-muted); width:16px;"></i>
                         <div>
-                            <div style="font-size:0.75rem; color:var(--text-muted);">Clave</div>
+                            <div style="font-size:0.73rem; color:var(--text-muted);">Clave</div>
                             <div><span class="folio-tag"><?= htmlspecialchars($ticket['clave']) ?></span></div>
                         </div>
                     </div>
                     <div class="d-flex align-items-start gap-2">
                         <i class="bi bi-envelope mt-1" style="color:var(--text-muted); width:16px;"></i>
                         <div>
-                            <div style="font-size:0.75rem; color:var(--text-muted);">Correo</div>
-                            <div style="font-size:0.85rem; word-break:break-all;"><?= htmlspecialchars($ticket['correo_solicitante']) ?></div>
+                            <div style="font-size:0.73rem; color:var(--text-muted);">Correo</div>
+                            <div style="font-size:0.82rem; word-break:break-all;">
+                                <?= htmlspecialchars($ticket['correo_solicitante'] ?? '—') ?>
+                            </div>
                         </div>
                     </div>
                     <div class="d-flex align-items-start gap-2">
                         <i class="bi bi-building mt-1" style="color:var(--text-muted); width:16px;"></i>
                         <div>
-                            <div style="font-size:0.75rem; color:var(--text-muted);">Departamento</div>
-                            <div style="font-size:0.85rem;"><?= htmlspecialchars($ticket['departamento'] ?? '—') ?></div>
+                            <div style="font-size:0.73rem; color:var(--text-muted);">Departamento</div>
+                            <div style="font-size:0.82rem;">
+                                <?= htmlspecialchars($ticket['departamento'] ?? '—') ?>
+                            </div>
                         </div>
                     </div>
                     <div class="d-flex align-items-start gap-2">
                         <i class="bi bi-telephone mt-1" style="color:var(--text-muted); width:16px;"></i>
                         <div>
-                            <div style="font-size:0.75rem; color:var(--text-muted);">Canal de Contacto</div>
-                            <div style="font-size:0.85rem;"><?= htmlspecialchars($ticket['canal']) ?></div>
+                            <div style="font-size:0.73rem; color:var(--text-muted);">Canal de contacto</div>
+                            <div style="font-size:0.82rem;"><?= htmlspecialchars($ticket['canal']) ?></div>
                         </div>
                     </div>
                 </div>
@@ -218,18 +271,20 @@ function mapBadge(string $val, string $tipo): string {
                     <div class="d-flex align-items-start gap-2">
                         <i class="bi bi-calendar-plus mt-1" style="color:var(--text-muted); width:16px;"></i>
                         <div>
-                            <div style="font-size:0.75rem; color:var(--text-muted);">Creación</div>
-                            <div style="font-size:0.85rem;"><?= date('d/m/Y H:i', strtotime($ticket['fecha_creacion'])) ?></div>
+                            <div style="font-size:0.73rem; color:var(--text-muted);">Creación</div>
+                            <div style="font-size:0.82rem;">
+                                <?= date('d/m/Y H:i', strtotime($ticket['fecha_creacion'])) ?>
+                            </div>
                         </div>
                     </div>
                     <div class="d-flex align-items-start gap-2">
                         <i class="bi bi-calendar-check mt-1" style="color:var(--text-muted); width:16px;"></i>
                         <div>
-                            <div style="font-size:0.75rem; color:var(--text-muted);">Cierre</div>
-                            <div style="font-size:0.85rem;">
+                            <div style="font-size:0.73rem; color:var(--text-muted);">Cierre</div>
+                            <div style="font-size:0.82rem;">
                                 <?= $ticket['fecha_cierre']
                                     ? date('d/m/Y H:i', strtotime($ticket['fecha_cierre']))
-                                    : '<span class="text-muted-hd">Pendiente</span>' ?>
+                                    : '<span style="color:var(--text-muted);">Pendiente</span>' ?>
                             </div>
                         </div>
                     </div>
@@ -237,20 +292,23 @@ function mapBadge(string $val, string $tipo): string {
             </div>
         </div>
 
-        <!-- Asignación de Técnico (Mesa/Coordinador) -->
+        <!-- RF_07: Asignar técnico (Mesa/Coordinador) -->
         <?php if (in_array($rolId, [1, 3]) && !$esCerrado): ?>
             <div class="hd-card mb-4 fade-in-up delay-3">
                 <div class="hd-card-header">
-                    <h2 class="hd-card-title"><i class="bi bi-person-gear text-accent"></i> Asignar Técnico</h2>
+                    <h2 class="hd-card-title">
+                        <i class="bi bi-person-gear text-accent"></i> Asignar Técnico
+                    </h2>
                 </div>
                 <div class="hd-card-body">
                     <?php if ($ticket['tecnico']): ?>
-                        <div class="alert alert-info mb-3" style="font-size:0.82rem;">
+                        <div class="alert alert-info mb-3" style="font-size:0.82rem; padding:8px 12px;">
                             <i class="bi bi-person-check-fill me-1"></i>
                             Asignado: <strong><?= htmlspecialchars($ticket['tecnico']) ?></strong>
                         </div>
                     <?php endif; ?>
-                    <form method="POST" action="<?= BASE_URL ?>/index.php?controller=Ticket&action=asignar">
+                    <form method="POST"
+                          action="<?= BASE_URL ?>/index.php?controller=Ticket&action=asignar">
                         <input type="hidden" name="id_ticket" value="<?= $ticket['id'] ?>">
                         <div class="mb-3">
                             <label class="form-label">Técnico Responsable</label>
@@ -258,7 +316,7 @@ function mapBadge(string $val, string $tipo): string {
                                 <option value="">— Selecciona técnico —</option>
                                 <?php foreach ($tecnicos as $tec): ?>
                                     <option value="<?= $tec['id'] ?>"
-                                        <?= $ticket['id_tecnico'] == $tec['id'] ? 'selected' : '' ?>>
+                                        <?= ($ticket['id_tecnico'] ?? '') == $tec['id'] ? 'selected' : '' ?>>
                                         <?= htmlspecialchars($tec['nombre_completo']) ?>
                                     </option>
                                 <?php endforeach; ?>
@@ -266,63 +324,89 @@ function mapBadge(string $val, string $tipo): string {
                         </div>
                         <button type="submit" class="btn btn-primary btn-sm w-100">
                             <i class="bi bi-person-check"></i>
-                            <?= $ticket['tecnico'] ? 'Reasignar' : 'Asignar' ?> Técnico
+                            <?= $ticket['tecnico'] ? 'Reasignar Técnico' : 'Asignar Técnico' ?>
                         </button>
                     </form>
                 </div>
             </div>
         <?php endif; ?>
 
-        <!-- Actualizar Estatus (Técnico) — solo En Proceso / Terminado -->
-        <?php if ($rolId == 2 && !$esCerrado && !$enValidacion): ?>
+        <!-- RF_09: Actualizar estatus — Soporte Técnico (Rol 2) -->
+        <?php if ($rolId === 2 && !$esCerrado): ?>
             <div class="hd-card mb-4 fade-in-up delay-3">
                 <div class="hd-card-header">
-                    <h2 class="hd-card-title"><i class="bi bi-arrow-repeat text-accent"></i> Actualizar Estatus</h2>
+                    <h2 class="hd-card-title">
+                        <i class="bi bi-arrow-repeat text-accent"></i> Actualizar Estatus
+                    </h2>
                 </div>
                 <div class="hd-card-body">
-                    <form method="POST" action="<?= BASE_URL ?>/index.php?controller=Ticket&action=actualizarEstatus">
-                        <input type="hidden" name="id_ticket" value="<?= $ticket['id'] ?>">
-                        <div class="mb-3">
-                            <select class="form-select" name="id_estatus" required>
-                                <option value="">— Selecciona estatus —</option>
-                                <option value="2" <?= $ticket['id_estatus'] == 2 ? 'selected' : '' ?>>En Proceso</option>
-                                <option value="5">Terminado (enviar a validación)</option>
-                            </select>
-                            <div class="form-text mt-2" style="font-size:0.74rem; color:var(--text-muted);">
-                                <i class="bi bi-info-circle"></i> Al marcar <strong>Terminado</strong>, el folio pasa a <strong>"Pendiente de Validación"</strong> y se envía a Mesa de Ayuda para su cierre. El técnico no lo cierra.
+
+                    <?php if ($enValidacion): ?>
+                        <!-- Ticket ya enviado a validación -->
+                        <div class="alert alert-warning mb-0" style="font-size:0.82rem;">
+                            <i class="bi bi-hourglass-split me-2"></i>
+                            Ya marcaste este folio como <strong>Terminado</strong>.
+                            Está en espera de validación por Mesa de Ayuda para su cierre definitivo.
+                        </div>
+
+                    <?php elseif (empty($ticket['id_tecnico'])): ?>
+                        <!-- RF_09 Flujo Alt. 4a: sin técnico asignado -->
+                        <div class="alert alert-danger mb-0" style="font-size:0.82rem;">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            No puedes cambiar el estatus.
+                            <strong>Debe asignarse un especialista primero (RF_07).</strong>
+                        </div>
+
+                    <?php else: ?>
+                        <!-- Formulario de cambio de estatus -->
+                        <form method="POST"
+                              action="<?= BASE_URL ?>/index.php?controller=Ticket&action=actualizarEstatus"
+                              id="formEstatus">
+                            <input type="hidden" name="id_ticket" value="<?= $ticket['id'] ?>">
+                            <div class="mb-3">
+                                <label class="form-label">Nuevo Estatus</label>
+                                <select class="form-select" name="id_estatus" required id="selectEstatus">
+                                    <option value="">— Selecciona —</option>
+                                    <option value="2" <?= $idEstatus === 2 ? 'selected' : '' ?>>
+                                        En Proceso
+                                    </option>
+                                    <option value="3">
+                                        Terminado — enviar a validación
+                                    </option>
+                                </select>
+                                <div class="form-text mt-2" style="font-size:0.73rem; color:var(--text-muted);">
+                                    <i class="bi bi-info-circle"></i>
+                                    Al marcar <strong>Terminado</strong>, el folio pasa a
+                                    <em>Pendiente de Validación</em> y se notifica a Mesa de Ayuda.
+                                    El técnico no realiza el cierre definitivo.
+                                </div>
                             </div>
-                        </div>
-                        <button type="submit" class="btn btn-outline-primary btn-sm w-100">
-                            <i class="bi bi-send-check"></i> Marcar Terminado
-                        </button>
-                    </form>
-                </div>
-            </div>
-        <?php elseif ($rolId == 2 && $enValidacion): ?>
-            <div class="hd-card mb-4 fade-in-up delay-3">
-                <div class="hd-card-body">
-                    <div class="alert alert-warning mb-0" style="font-size:0.82rem;">
-                        <i class="bi bi-hourglass-split me-1"></i>
-                        Ya marcaste este folio como <strong>Terminado</strong>. Está en espera de validación y cierre por Mesa de Ayuda.
-                    </div>
+                            <button type="submit" class="btn btn-outline-primary btn-sm w-100"
+                                    id="btnActualizarEstatus">
+                                <i class="bi bi-send-check"></i> Actualizar Estado
+                            </button>
+                        </form>
+                    <?php endif; ?>
+
                 </div>
             </div>
         <?php endif; ?>
 
-        <!-- Actualizar Estatus (Mesa de Ayuda) — solo En Proceso -->
-        <?php if ($rolId == 3 && !$esCerrado): ?>
+        <!-- RF_09: Actualizar estatus — Mesa de Ayuda (Rol 3, solo "En Proceso") -->
+        <?php if ($rolId === 3 && !$esCerrado && !$enValidacion): ?>
             <div class="hd-card mb-4 fade-in-up delay-3">
                 <div class="hd-card-header">
-                    <h2 class="hd-card-title"><i class="bi bi-arrow-repeat text-accent"></i> Actualizar Estatus</h2>
+                    <h2 class="hd-card-title">
+                        <i class="bi bi-arrow-repeat text-accent"></i> Actualizar Estatus
+                    </h2>
                 </div>
                 <div class="hd-card-body">
-                    <form method="POST" action="<?= BASE_URL ?>/index.php?controller=Ticket&action=actualizarEstatus">
+                    <form method="POST"
+                          action="<?= BASE_URL ?>/index.php?controller=Ticket&action=actualizarEstatus">
                         <input type="hidden" name="id_ticket" value="<?= $ticket['id'] ?>">
-                        <div class="mb-3">
-                            <select class="form-select" name="id_estatus" required>
-                                <option value="2" <?= $ticket['id_estatus'] == 2 ? 'selected' : '' ?>>En Proceso</option>
-                            </select>
-                        </div>
+                        <select class="form-select mb-3" name="id_estatus" required>
+                            <option value="2" <?= $idEstatus === 2 ? 'selected' : '' ?>>En Proceso</option>
+                        </select>
                         <button type="submit" class="btn btn-outline-primary btn-sm w-100">
                             <i class="bi bi-check-circle"></i> Marcar En Proceso
                         </button>
@@ -331,26 +415,33 @@ function mapBadge(string $val, string $tipo): string {
             </div>
         <?php endif; ?>
 
-        <!-- Info del Técnico (visualización) -->
+        <!-- Técnico Asignado (visualización) -->
         <div class="hd-card fade-in-up delay-4">
             <div class="hd-card-header">
-                <h2 class="hd-card-title"><i class="bi bi-tools text-accent"></i> Técnico Asignado</h2>
+                <h2 class="hd-card-title">
+                    <i class="bi bi-tools text-accent"></i> Técnico Asignado
+                </h2>
             </div>
             <div class="hd-card-body">
                 <?php if ($ticket['tecnico']): ?>
                     <div class="d-flex align-items-center gap-3">
                         <div class="user-avatar-sm" style="width:38px; height:38px; font-size:0.9rem;">
-                            <?= strtoupper(substr($ticket['tecnico'], 0, 1)) ?>
+                            <?php
+                            $words = array_slice(explode(' ', $ticket['tecnico']), 0, 2);
+                            echo htmlspecialchars(implode('', array_map(fn($w) => strtoupper($w[0]), $words)));
+                            ?>
                         </div>
                         <div>
-                            <div style="font-weight:500;"><?= htmlspecialchars($ticket['tecnico']) ?></div>
-                            <span class="role-badge">Técnico</span>
+                            <div style="font-weight:500;">
+                                <?= htmlspecialchars($ticket['tecnico']) ?>
+                            </div>
+                            <span class="role-badge">Soporte Técnico</span>
                         </div>
                     </div>
                 <?php else: ?>
                     <div class="empty-state py-2">
-                        <i class="bi bi-person-x d-block" style="font-size:1.5rem;"></i>
-                        <p style="font-size:0.8rem;">Sin técnico asignado</p>
+                        <i class="bi bi-person-x d-block mb-1" style="font-size:1.5rem; color:var(--text-muted);"></i>
+                        <p style="font-size:0.8rem; color:var(--text-muted); margin:0;">Sin técnico asignado</p>
                     </div>
                 <?php endif; ?>
             </div>
@@ -359,31 +450,46 @@ function mapBadge(string $val, string $tipo): string {
     </div><!-- /sidebar -->
 </div><!-- /row -->
 
-<!-- ══ Modal: Confirmar cierre ═══════════════════════════════════════════════ -->
+<!-- ══ Modal: Confirmar cierre / validación ══════════════════════════════ -->
 <?php if (in_array($rolId, [1, 3]) && !$esCerrado): ?>
 <div class="modal fade" id="modalCerrar" tabindex="-1" aria-labelledby="modalCerrarLabel">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="modalCerrarLabel">
-                    <i class="bi bi-check2-circle me-2 text-accent"></i>Confirmar Cierre
+                    <i class="bi bi-check2-circle me-2 text-accent"></i>
+                    <?= $enValidacion ? 'Validar y Cerrar Ticket' : 'Confirmar Cierre' ?>
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <p>¿Estás seguro de que deseas cerrar el ticket <span class="folio-tag"><?= htmlspecialchars($ticket['folio']) ?></span>?</p>
+                <?php if ($enValidacion): ?>
+                    <div class="alert alert-info mb-3" style="font-size:0.82rem;">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Este ticket está marcado como <strong>Pendiente de Validación</strong>.
+                        Al cerrarlo, confirmas que el técnico resolvió el problema correctamente.
+                    </div>
+                <?php endif; ?>
+                <p>
+                    ¿Confirmas el cierre del ticket
+                    <span class="folio-tag"><?= htmlspecialchars($ticket['folio']) ?></span>?
+                </p>
                 <p class="mb-0" style="font-size:0.82rem; color:var(--text-muted);">
-                    Esta acción registrará la fecha y hora de cierre. El técnico ya no podrá modificar el estatus.
+                    Esta acción registrará la fecha y hora de cierre definitivo y agregará
+                    una nota de validación automática al historial.
                 </p>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">
+                <button type="button" class="btn btn-outline-secondary btn-sm"
+                        data-bs-dismiss="modal">
                     <i class="bi bi-x-circle"></i> Cancelar
                 </button>
-                <form method="POST" action="<?= BASE_URL ?>/index.php?controller=Ticket&action=cerrar">
+                <form method="POST"
+                      action="<?= BASE_URL ?>/index.php?controller=Ticket&action=cerrar">
                     <input type="hidden" name="id_ticket" value="<?= $ticket['id'] ?>">
-                    <button type="submit" class="btn btn-outline-success btn-sm">
-                        <i class="bi bi-check2-circle"></i> Sí, Cerrar Ticket
+                    <button type="submit" class="btn btn-success btn-sm">
+                        <i class="bi bi-check2-circle"></i>
+                        <?= $enValidacion ? 'Validar y Cerrar' : 'Sí, Cerrar Ticket' ?>
                     </button>
                 </form>
             </div>
@@ -392,14 +498,115 @@ function mapBadge(string $val, string $tipo): string {
 </div>
 <?php endif; ?>
 
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <script>
-document.getElementById('formNota')?.addEventListener('submit', function () {
-    const btn = document.getElementById('btnNota');
-    if (btn) {
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Publicando...';
-        btn.disabled = true;
+document.addEventListener('DOMContentLoaded', function() {
+
+    // ─── 1. MANEJO DE NOTAS INTERNAS (RF_08) ─────────────────────────
+    const formNota = document.getElementById('formNota');
+    if (formNota) {
+        formNota.addEventListener('submit', function (e) {
+            e.preventDefault(); // Evita recargar la página en blanco
+
+            const btn = document.getElementById('btnNota');
+            const formData = new FormData(this);
+
+            Swal.fire({
+                title: 'Guardando nota...',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+
+            fetch(this.action, { method: 'POST', body: formData })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire({
+                        title: '¡Nota guardada!',
+                        text: data.message,
+                        icon: 'success',
+                        timer: 1500,
+                        showConfirmButton: false
+                    }).then(() => window.location.reload());
+                } else {
+                    Swal.fire('Error', data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire('Error crítico', 'No se pudo conectar al servidor.', 'error');
+            });
+        });
     }
+
+    // ─── 2. MANEJO DE CAMBIO DE ESTATUS (RF_09) ──────────────────────
+    const formEstatus = document.getElementById('formEstatus');
+    if (formEstatus) {
+        formEstatus.addEventListener('submit', function (e) {
+            e.preventDefault(); // Evita recargar la página en blanco
+
+            const selectEstatus = document.getElementById('selectEstatus');
+            const formData = new FormData(this);
+
+            // Validar si eligió "Terminado" (ID 3)
+            if (selectEstatus && selectEstatus.value === '3') {
+                Swal.fire({
+                    title: '¿Enviar a validación?',
+                    text: "El folio desaparecerá de tu bandeja y pasará a Mesa de Ayuda.",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#3085d6',
+                    cancelButtonColor: '#d33',
+                    confirmButtonText: '<i class="bi bi-send-check"></i> Sí, enviar a Mesa',
+                    cancelButtonText: 'Cancelar'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        procesarEstatus(formEstatus.action, formData, true);
+                    }
+                });
+            } else {
+                // Si eligió otro estatus (Ej. "En proceso"), guardar directo
+                procesarEstatus(formEstatus.action, formData, false);
+            }
+        });
+    }
+
+    // Función auxiliar para enviar el estatus al servidor
+    function procesarEstatus(url, formData, esTerminado) {
+        Swal.fire({
+            title: 'Actualizando estatus...',
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+        });
+
+        fetch(url, { method: 'POST', body: formData })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                Swal.fire({
+                    title: '¡Actualizado!',
+                    text: data.message,
+                    icon: 'success',
+                    confirmButtonColor: '#28a745'
+                }).then(() => {
+                    // Lógica del Dashboard: Si se terminó, sacarlo de la vista del ticket
+                    if (esTerminado) {
+                        window.location.href = '<?= BASE_URL ?>/index.php?controller=Ticket&action=misTickets';
+                    } else {
+                        window.location.reload();
+                    }
+                });
+            } else {
+                Swal.fire('Aviso', data.message, 'warning');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            Swal.fire('Error Crítico', 'Hubo un problema de comunicación con el servidor.', 'error');
+        });
+    }
+
 });
 </script>
-
 <?php require BASE_PATH . '/app/views/layouts/footer.php'; ?>

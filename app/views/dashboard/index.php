@@ -210,33 +210,35 @@ if ($rolId == 1): ?>
        ═══════════════════════════════════════════════════════════════ */
 elseif ($rolId == 2): ?>
 
-    <?php
-    $miTotal          = count($misTickets);
-    $misTicketsActivos = array_filter($misTickets, fn($t) => strtolower($t['estatus']) !== 'cerrado');
-    $miActivos        = count($misTicketsActivos);
-    $miCerrados       = $miTotal - $miActivos;
-    ?>
-
     <div class="row g-3 mb-4">
-        <div class="col-6 col-md-4 fade-in-up delay-1">
+        <div class="col-6 col-md-3 fade-in-up delay-1">
             <div class="stat-card">
                 <div class="stat-icon blue"><i class="bi bi-ticket-perforated-fill"></i></div>
                 <div>
-                    <div class="stat-value"><?= $miTotal ?></div>
+                    <div class="stat-value"><?= $stats['total_asignados'] ?? 0 ?></div>
                     <div class="stat-label">Histórico Total</div>
                 </div>
             </div>
         </div>
-        <div class="col-6 col-md-4 fade-in-up delay-2">
+        <div class="col-6 col-md-3 fade-in-up delay-2">
             <div class="stat-card">
                 <div class="stat-icon amber"><i class="bi bi-clock-history"></i></div>
                 <div>
-                    <div class="stat-value"><?= $miActivos ?></div>
+                    <div class="stat-value"><?= $stats['por_hacer'] ?? 0 ?></div>
                     <div class="stat-label">Por Atender</div>
                 </div>
             </div>
         </div>
-        <div class="col-6 col-md-4 fade-in-up delay-3">
+        <div class="col-6 col-md-3 fade-in-up delay-3">
+            <div class="stat-card">
+                <div class="stat-icon text-info"><i class="bi bi-send-check"></i></div>
+                <div>
+                    <div class="stat-value"><?= $miValidacion ?></div>
+                    <div class="stat-label">En Validación</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 fade-in-up delay-4">
             <div class="stat-card">
                 <div class="stat-icon green"><i class="bi bi-check-circle-fill"></i></div>
                 <div>
@@ -307,8 +309,6 @@ elseif ($rolId == 2): ?>
                     </table>
                 </div>
             <?php endif; ?>
-        </div>
-    </div>
 
 <?php /* ═══════════════════════════════════════════════════════════════
         MESA DE AYUDA (Rol 3): acciones rápidas y pendientes
