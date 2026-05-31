@@ -466,6 +466,8 @@ textarea.form-control { resize: vertical; min-height: 100px; }
 .badge-alta       { background: #dc2626 !important; color: #fff !important; } /* Rojo */
 .badge-media      { background: #d97706 !important; color: #fff !important; } /* Naranja/Amarillo */
 .badge-baja       { background: #059669 !important; color: #fff !important; } /* Verde */
+.badge-activo     { background: #16a34a !important; color: #fff !important; } /* Verde — usuario activo */
+.badge-inactivo   { background: #374151 !important; color: #9ca3af !important; } /* Gris — usuario inactivo */
 
 /* ─── Alertas del sistema ───────────────────────────────────────────────────── */
 .alert {

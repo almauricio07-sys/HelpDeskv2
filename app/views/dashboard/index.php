@@ -2,21 +2,25 @@
 /**
  * Vista: Dashboard
  * Panel principal diferenciado por rol.
- * Roles: 1=Coordinador | 2=Técnico | 3=Mesa de Ayuda
+ *
+ * Roles: 1=Coordinador | 2=Soporte Técnico | 3=Mesa de Ayuda
+ * Estatus: 1=Pendiente Asignación | 2=En Proceso | 3=Terminado
+ *          4=Pendiente Validación | 5=Cerrado
  */
 
-// Helper para obtener clase de badge según estatus
 function badgeEstatus(string $estatus): string {
-    return match (strtolower($estatus)) {
-        'abierto'    => 'badge-abierto',
-        'en proceso' => 'badge-proceso',
-        'cerrado'    => 'badge-cerrado',
-        default      => 'badge-pendiente',
+    return match (strtolower(trim($estatus))) {
+        'pendiente de asignación' => 'badge-pendiente',
+        'en proceso'              => 'badge-proceso',
+        'terminado'               => 'badge-media',
+        'pendiente de validación' => 'badge-abierto',
+        'cerrado'                 => 'badge-cerrado',
+        default                   => 'badge-pendiente',
     };
 }
 
 function badgePrioridad(string $prioridad): string {
-    return match (strtolower($prioridad)) {
+    return match (strtolower(trim($prioridad))) {
         'alta'  => 'badge-alta',
         'media' => 'badge-media',
         'baja'  => 'badge-baja',
@@ -26,7 +30,6 @@ function badgePrioridad(string $prioridad): string {
 
 require BASE_PATH . '/app/views/layouts/header.php';
 
-// Flash messages
 $flashSuccess = $_SESSION['flash_success'] ?? null;
 $flashError   = $_SESSION['flash_error']   ?? null;
 unset($_SESSION['flash_success'], $_SESSION['flash_error']);
@@ -38,39 +41,41 @@ unset($_SESSION['flash_success'], $_SESSION['flash_error']);
 </div>
 
 <?php if ($flashSuccess): ?>
-    <div class="alert alert-success alert-dismissible d-flex align-items-center gap-2 mb-4 fade-in-up" role="alert">
+    <div class="alert alert-success alert-dismissible d-flex align-items-center gap-2 mb-4 fade-in-up">
         <i class="bi bi-check-circle-fill"></i>
         <span><?= $flashSuccess ?></span>
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
 <?php endif; ?>
 <?php if ($flashError): ?>
-    <div class="alert alert-danger alert-dismissible d-flex align-items-center gap-2 mb-4 fade-in-up" role="alert">
+    <div class="alert alert-danger alert-dismissible d-flex align-items-center gap-2 mb-4 fade-in-up">
         <i class="bi bi-exclamation-circle-fill"></i>
         <span><?= htmlspecialchars($flashError) ?></span>
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
 <?php endif; ?>
 
+<!-- Saludo -->
 <div class="mb-4 fade-in-up">
     <h1 class="h4 mb-1">
         <?php
-        $hora = (int) date('H');
-        $saludo = $hora < 12 ? 'Buenos días' : ($hora < 19 ? 'Buenas tardes' : 'Buenas noches');
-        echo $saludo . ', <span style="color:var(--accent)">' . htmlspecialchars($_SESSION['nombre']) . '</span> 👋';
+        $hora    = (int) date('H');
+        $saludo  = $hora < 12 ? 'Buenos días' : ($hora < 19 ? 'Buenas tardes' : 'Buenas noches');
+        echo $saludo . ', <span style="color:var(--accent)">' . htmlspecialchars($_SESSION['nombre']) . '</span>';
         ?>
     </h1>
-    <p class="mb-0" style="font-size:0.85rem;">
-        <?= date('l, j \d\e F \d\e Y', strtotime('today')) ?> &mdash;
-        <span class="role-badge"><?= htmlspecialchars($_SESSION['rol_nombre']) ?></span>
+    <p class="mb-0" style="font-size:0.85rem; color:var(--text-muted);">
+        <?= date('l, j \d\e F \d\e Y', strtotime('today')) ?>
+        &mdash; <span class="role-badge"><?= htmlspecialchars($_SESSION['rol_nombre']) ?></span>
     </p>
 </div>
 
-<?php /* ═══════════════════════════════════════════════════════════════════
-        COORDINADOR (Rol 1): Dashboard con estadísticas y gráficas
-       ═══════════════════════════════════════════════════════════════════ */
+<?php /* ═══════════════════════════════════════════════════════════════
+        COORDINADOR (Rol 1): RF_14 y RF_15
+       ═══════════════════════════════════════════════════════════════ */
 if ($rolId == 1): ?>
 
+    <!-- Tarjetas de resumen -->
     <div class="row g-3 mb-4">
         <div class="col-6 col-md-3 fade-in-up delay-1">
             <div class="stat-card">
@@ -86,7 +91,7 @@ if ($rolId == 1): ?>
                 <div class="stat-icon amber"><i class="bi bi-clock-history"></i></div>
                 <div>
                     <div class="stat-value"><?= $ticketsActivos ?></div>
-                    <div class="stat-label">Tickets Activos</div>
+                    <div class="stat-label">En Gestión</div>
                 </div>
             </div>
         </div>
@@ -95,7 +100,7 @@ if ($rolId == 1): ?>
                 <div class="stat-icon green"><i class="bi bi-check-circle-fill"></i></div>
                 <div>
                     <div class="stat-value"><?= $ticketsCerrados ?></div>
-                    <div class="stat-label">Tickets Cerrados</div>
+                    <div class="stat-label">Cerrados</div>
                 </div>
             </div>
         </div>
@@ -110,62 +115,109 @@ if ($rolId == 1): ?>
         </div>
     </div>
 
+    <!-- RF_14 y RF_15 -->
     <div class="row g-3 mb-4">
+
+        <!-- RF_14: Gráfica Activos vs Cerrados -->
         <div class="col-md-4 fade-in-up delay-1">
             <div class="hd-card h-100">
                 <div class="hd-card-header">
                     <h2 class="hd-card-title">
-                        <i class="bi bi-pie-chart-fill text-accent"></i>
-                        Proporción Global
+                        <i class="bi bi-pie-chart-fill text-accent"></i> Proporción Global
                     </h2>
                 </div>
-                <div class="hd-card-body chart-container d-flex align-items-center justify-content-center" style="min-height:300px;">
-                    <canvas id="chartActivosCerrados" style="max-height:260px;"></canvas>
+                <div class="hd-card-body">
+                    <?php if ($totalTickets > 0): ?>
+                        <div class="chart-container d-flex align-items-center justify-content-center"
+                             style="min-height:220px;">
+                            <canvas id="chartActivosCerrados" style="max-height:210px;"></canvas>
+                        </div>
+
+                        <!-- Desglose por estatus (RF_14 — tabla detallada) -->
+                        <div class="mt-3" style="border-top: 1px solid rgba(255,255,255,0.06); padding-top:12px;">
+                            <p style="font-size:0.72rem; color:var(--text-muted); margin-bottom:8px; text-transform:uppercase; letter-spacing:.05em;">
+                                Desglose por estatus
+                            </p>
+                            <div class="d-flex flex-column gap-2">
+                                <?php foreach ($statsPorEstatus as $s): ?>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="hd-badge <?= badgeEstatus($s['nombre_estatus']) ?>"
+                                              style="font-size:0.67rem;">
+                                            <?= htmlspecialchars($s['nombre_estatus']) ?>
+                                        </span>
+                                        <span style="font-size:0.85rem; font-weight:600; color:var(--text-primary);">
+                                            <?= (int) $s['total'] ?>
+                                        </span>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    <?php else: ?>
+                        <!-- RF_14 Flujo alternativo: sin datos -->
+                        <div class="empty-state py-4">
+                            <i class="bi bi-bar-chart-line d-block mb-2"
+                               style="font-size:2rem; color:var(--text-muted);"></i>
+                            <p class="mb-0" style="font-size:0.82rem;">
+                                No hay datos suficientes para generar indicadores visuales.
+                            </p>
+                        </div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
 
+        <!-- RF_15: Carga de Trabajo por Usuario -->
         <div class="col-md-8 fade-in-up delay-2">
             <div class="hd-card h-100">
-                <div class="hd-card-header d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                <div class="hd-card-header d-flex flex-column flex-md-row
+                            justify-content-between align-items-md-center gap-2">
                     <h2 class="hd-card-title mb-0">
                         <i class="bi bi-bar-chart-line-fill text-accent"></i>
                         Carga de Trabajo por Usuario
                     </h2>
                     <div class="d-flex flex-wrap gap-2">
-                        <input type="text" id="filterName" class="form-control form-control-sm" placeholder="🔍 Buscar nombre..." style="min-width: 160px; max-width: 200px;">
-                        <select id="filterRole" class="form-select form-select-sm" style="min-width: 140px; max-width: 180px;">
+                        <input type="text" id="filterName" class="form-control form-control-sm"
+                               placeholder="🔍 Buscar nombre..."
+                               style="min-width:150px; max-width:190px;">
+                        <select id="filterRole" class="form-select form-select-sm"
+                                style="min-width:140px; max-width:175px;">
                             <option value="">Todos los roles</option>
-                            <option value="Técnico">Equipo Soporte (Técnicos)</option>
+                            <option value="Soporte Técnico">Soporte Técnico</option>
                             <option value="Mesa de Ayuda">Mesa de Ayuda</option>
-                            <option value="General">Sin Asignar</option>
                         </select>
                     </div>
                 </div>
-                <div class="hd-card-body chart-container" style="min-height:300px;">
-                    <canvas id="chartTicketsUsuario" style="max-height:260px;"></canvas>
+                <div class="hd-card-body">
+                    <!-- El contenedor del gráfico y el empty-state se alternan via JS -->
+                    <div id="chartWrapper" class="chart-container" style="min-height:260px;">
+                        <canvas id="chartTicketsUsuario" style="max-height:250px;"></canvas>
+                    </div>
+                    <div id="rf15EmptyState" class="empty-state py-4" style="display:none;">
+                        <i class="bi bi-person-x d-block mb-2"
+                           style="font-size:2rem; color:var(--text-muted);"></i>
+                        <p class="mb-0" style="font-size:0.82rem;">
+                            Sin datos de asignación disponibles para el reporte de carga.
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
+
     </div>
 
-    <?php /* ═══════════════════════════════════════════════════════════════════ */ ?>
-
-<?php /* ═══════════════════════════════════════════════════════════════════
-        TÉCNICO (Rol 2): Sus tickets asignados
-       ═══════════════════════════════════════════════════════════════════ */
+<?php /* ═══════════════════════════════════════════════════════════════
+        SOPORTE TÉCNICO (Rol 2): sus tickets asignados
+       ═══════════════════════════════════════════════════════════════ */
 elseif ($rolId == 2): ?>
 
+    <?php
+    $miTotal          = count($misTickets);
+    $misTicketsActivos = array_filter($misTickets, fn($t) => strtolower($t['estatus']) !== 'cerrado');
+    $miActivos        = count($misTicketsActivos);
+    $miCerrados       = $miTotal - $miActivos;
+    ?>
+
     <div class="row g-3 mb-4">
-        <?php
-        $miTotal   = count($misTickets);
-        
-        // ─── MAGIA AQUÍ: Filtramos solo los tickets que NO están cerrados ───
-        $misTicketsActivos = array_filter($misTickets, fn($t) => strtolower($t['estatus']) !== 'cerrado');
-        
-        $miActivos = count($misTicketsActivos);
-        $miCerrad  = $miTotal - $miActivos;
-        ?>
         <div class="col-6 col-md-4 fade-in-up delay-1">
             <div class="stat-card">
                 <div class="stat-icon blue"><i class="bi bi-ticket-perforated-fill"></i></div>
@@ -188,7 +240,7 @@ elseif ($rolId == 2): ?>
             <div class="stat-card">
                 <div class="stat-icon green"><i class="bi bi-check-circle-fill"></i></div>
                 <div>
-                    <div class="stat-value"><?= $miCerrad ?></div>
+                    <div class="stat-value"><?= $miCerrados ?></div>
                     <div class="stat-label">Cerrados</div>
                 </div>
             </div>
@@ -201,19 +253,20 @@ elseif ($rolId == 2): ?>
                 <i class="bi bi-person-lines-fill text-accent"></i>
                 Mis Folios Pendientes de Atención
             </h2>
-            <a href="<?= BASE_URL ?>/index.php?controller=Ticket&action=misTickets" class="btn btn-outline-primary btn-sm">
-                <i class="bi bi-list-ul"></i> Ver histórico
+            <a href="<?= BASE_URL ?>/index.php?controller=Ticket&action=misTickets"
+               class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-list-ul"></i> Ver historial completo
             </a>
         </div>
         <div class="hd-card-body p-0">
             <?php if (empty($misTicketsActivos)): ?>
-                <div class="empty-state">
-                    <i class="bi bi-emoji-smile d-block text-success mb-2" style="font-size: 2rem;"></i>
-                    <p>¡Excelente! No tienes tickets pendientes de atención en este momento.</p>
+                <div class="empty-state py-4">
+                    <i class="bi bi-emoji-smile d-block text-success mb-2" style="font-size:2rem;"></i>
+                    <p class="mb-0">¡Sin tickets pendientes por atender en este momento!</p>
                 </div>
             <?php else: ?>
                 <div class="hd-table-wrapper" style="border:none; border-radius:0;">
-                    <table class="table table-hover">
+                    <table class="table table-hover align-middle mb-0">
                         <thead>
                             <tr>
                                 <th>Folio</th>
@@ -231,7 +284,7 @@ elseif ($rolId == 2): ?>
                                     <td><?= htmlspecialchars($t['solicitante']) ?></td>
                                     <td>
                                         <span class="hd-badge <?= badgePrioridad($t['prioridad']) ?>">
-                                            <?= ucfirst($t['prioridad']) ?>
+                                            <?= ucfirst(strtolower($t['prioridad'])) ?>
                                         </span>
                                     </td>
                                     <td>
@@ -244,7 +297,7 @@ elseif ($rolId == 2): ?>
                                     </td>
                                     <td>
                                         <a href="<?= BASE_URL ?>/index.php?controller=Ticket&action=show&id=<?= $t['id'] ?>"
-                                           class="btn btn-action-edit btn-sm" title="Atender">
+                                           class="btn btn-action-edit btn-sm" title="Atender ticket">
                                             <i class="bi bi-wrench-adjustable"></i>
                                         </a>
                                     </td>
@@ -257,9 +310,9 @@ elseif ($rolId == 2): ?>
         </div>
     </div>
 
-<?php /* ═══════════════════════════════════════════════════════════════════
-        MESA DE AYUDA (Rol 3): Resumen y acciones rápidas
-       ═══════════════════════════════════════════════════════════════════ */
+<?php /* ═══════════════════════════════════════════════════════════════
+        MESA DE AYUDA (Rol 3): acciones rápidas y pendientes
+       ═══════════════════════════════════════════════════════════════ */
 else: ?>
 
     <div class="row g-3 mb-4">
@@ -277,7 +330,7 @@ else: ?>
                 <div class="stat-icon amber"><i class="bi bi-clock-history"></i></div>
                 <div>
                     <div class="stat-value"><?= $ticketsActivos ?></div>
-                    <div class="stat-label">Activos</div>
+                    <div class="stat-label">En Gestión</div>
                 </div>
             </div>
         </div>
@@ -295,33 +348,35 @@ else: ?>
     <div class="row g-3 mb-4 fade-in-up delay-2">
         <div class="col-12 col-md-6">
             <a href="<?= BASE_URL ?>/index.php?controller=Ticket&action=create"
-               class="hd-card d-flex align-items-center gap-3 p-3 text-decoration-none" style="cursor:pointer;">
+               class="hd-card d-flex align-items-center gap-3 p-3 text-decoration-none">
                 <div class="stat-icon blue flex-shrink-0"><i class="bi bi-plus-circle-fill"></i></div>
                 <div>
-                    <div class="fw-600" style="color:var(--text-primary); font-weight:600;">Registrar Nuevo Ticket</div>
+                    <div style="font-weight:600; color:var(--text-primary);">Registrar Nuevo Ticket</div>
                     <div style="font-size:0.8rem; color:var(--text-muted);">Captura un nuevo caso de soporte</div>
                 </div>
-                <i class="bi bi-chevron-right ms-auto text-muted-hd"></i>
+                <i class="bi bi-chevron-right ms-auto" style="color:var(--text-muted);"></i>
             </a>
         </div>
         <div class="col-12 col-md-6">
             <a href="<?= BASE_URL ?>/index.php?controller=Ticket&action=index"
-               class="hd-card d-flex align-items-center gap-3 p-3 text-decoration-none" style="cursor:pointer;">
+               class="hd-card d-flex align-items-center gap-3 p-3 text-decoration-none">
                 <div class="stat-icon amber flex-shrink-0"><i class="bi bi-list-ul"></i></div>
                 <div>
-                    <div class="fw-600" style="color:var(--text-primary); font-weight:600;">Ver Todos los Tickets</div>
+                    <div style="font-weight:600; color:var(--text-primary);">Ver Todos los Tickets</div>
                     <div style="font-size:0.8rem; color:var(--text-muted);">Consulta y filtra el tablero general</div>
                 </div>
-                <i class="bi bi-chevron-right ms-auto text-muted-hd"></i>
+                <i class="bi bi-chevron-right ms-auto" style="color:var(--text-muted);"></i>
             </a>
         </div>
         <div class="col-12">
             <a href="<?= BASE_URL ?>/index.php?controller=Ticket&action=porValidar"
-               class="hd-card d-flex align-items-center gap-3 p-3 text-decoration-none" style="cursor:pointer;">
+               class="hd-card d-flex align-items-center gap-3 p-3 text-decoration-none">
                 <div class="stat-icon green flex-shrink-0"><i class="bi bi-clipboard-check"></i></div>
                 <div>
-                    <div class="fw-600" style="color:var(--text-primary); font-weight:600;">Folios por Validar</div>
-                    <div style="font-size:0.8rem; color:var(--text-muted);">Folios terminados por el técnico, en espera de tu validación y cierre</div>
+                    <div style="font-weight:600; color:var(--text-primary);">Folios por Validar</div>
+                    <div style="font-size:0.8rem; color:var(--text-muted);">
+                        Terminados por el técnico, en espera de tu cierre definitivo
+                    </div>
                 </div>
                 <span class="hd-badge <?= count($porValidar) > 0 ? 'badge-pendiente' : 'badge-cerrado' ?> ms-auto">
                     <?= count($porValidar) ?> pendiente(s)
@@ -330,10 +385,10 @@ else: ?>
         </div>
     </div>
 
-    <div class="hd-card fade-in-up delay-2 mt-4">
-        <div class="hd-card-header d-flex justify-content-between align-items-center">
+    <div class="hd-card fade-in-up delay-3">
+        <div class="hd-card-header">
             <h2 class="hd-card-title">
-                <i class="bi bi-clock-history text-warning"></i> 
+                <i class="bi bi-clock-history text-warning"></i>
                 Pendiente de asignación
             </h2>
             <span class="hd-badge badge-pendiente">Requiere atención</span>
@@ -341,19 +396,21 @@ else: ?>
         <div class="hd-card-body p-0">
             <?php if (empty($ticketsPendientes)): ?>
                 <div class="empty-state py-4">
-                    <i class="bi bi-check2-circle text-success d-block mb-2" style="font-size: 2rem;"></i>
-                    <p class="mb-0 text-muted">No hay tickets pendientes de asignación en este momento.</p>
+                    <i class="bi bi-check2-circle text-success d-block mb-2" style="font-size:2rem;"></i>
+                    <p class="mb-0" style="color:var(--text-muted); font-size:0.85rem;">
+                        No hay tickets pendientes de asignación en este momento.
+                    </p>
                 </div>
             <?php else: ?>
                 <div class="hd-table-wrapper" style="border:none; border-radius:0;">
                     <table class="table table-hover align-middle mb-0">
                         <thead>
                             <tr>
-                                <th scope="col" style="width: 25%;">Folio / Problema</th>
-                                <th scope="col">Solicitante</th>
-                                <th scope="col">Fecha de Creación</th>
-                                <th scope="col">Estatus</th>
-                                <th scope="col" class="text-end">Acción</th>
+                                <th style="width:30%;">Folio / Problema</th>
+                                <th>Solicitante</th>
+                                <th>Fecha</th>
+                                <th>Estatus</th>
+                                <th class="text-end">Acción</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -361,33 +418,30 @@ else: ?>
                                 <tr>
                                     <td>
                                         <div class="d-flex flex-column gap-1">
-                                            <span class="folio-tag d-inline-block" style="width: fit-content;">
+                                            <span class="folio-tag d-inline-block" style="width:fit-content;">
                                                 <?= htmlspecialchars($t['folio']) ?>
                                             </span>
-                                            <!-- Aquí cambiamos 'text-muted' por 'text-white' -->
-                                            <div class="text-truncate text-white" style="max-width: 250px; font-size: 0.82rem;" title="<?= htmlspecialchars($t['descripcion']) ?>">
+                                            <div class="text-truncate" style="max-width:240px; font-size:0.8rem; color:var(--text-muted);"
+                                                 title="<?= htmlspecialchars($t['descripcion']) ?>">
                                                 <?= htmlspecialchars($t['descripcion']) ?>
                                             </div>
                                         </div>
                                     </td>
-                                    <td>
-                                        <div class="fw-semibold text-primary-hd">
-                                            <?= htmlspecialchars($t['solicitante']) ?>
-                                        </div>
+                                    <td style="font-weight:500;">
+                                        <?= htmlspecialchars($t['solicitante']) ?>
                                     </td>
-                                    <td>
-                                        <div class="d-flex flex-column text-muted" style="font-size: 0.85rem;">
-                                            <span><i class="bi bi-calendar3 me-1"></i><?= date('d/m/Y', strtotime($t['fecha_creacion'])) ?></span>
-                                            <span style="font-size: 0.75rem;"><i class="bi bi-clock me-1"></i><?= date('H:i', strtotime($t['fecha_creacion'])) ?> hrs</span>
-                                        </div>
+                                    <td style="font-size:0.82rem; color:var(--text-muted);">
+                                        <div><?= date('d/m/Y', strtotime($t['fecha_creacion'])) ?></div>
+                                        <div style="font-size:0.75rem;"><?= date('H:i', strtotime($t['fecha_creacion'])) ?> hrs</div>
                                     </td>
                                     <td>
                                         <span class="hd-badge badge-pendiente">
-                                            <i class="bi bi-hourglass-split me-1"></i> Pendiente de asignación
+                                            <i class="bi bi-hourglass-split me-1"></i> Pendiente
                                         </span>
                                     </td>
                                     <td class="text-end">
-                                        <a href="<?= BASE_URL ?>/index.php?controller=Ticket&action=show&id=<?= $t['id'] ?>" class="btn btn-outline-primary btn-sm">
+                                        <a href="<?= BASE_URL ?>/index.php?controller=Ticket&action=show&id=<?= $t['id'] ?>"
+                                           class="btn btn-outline-primary btn-sm">
                                             <i class="bi bi-box-arrow-in-right"></i> Atender
                                         </a>
                                     </td>
@@ -402,108 +456,140 @@ else: ?>
 
 <?php endif; ?>
 
-<?php /* ─── Chart.js solo para Coordinador ─────────────────────────────────── */
-if ($rolId == 1): 
-    ob_start();
-?>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<?php /* ─── Chart.js — solo para Coordinador (RF_14 y RF_15) ──────────── */
+if ($rolId == 1):
+    ob_start(); ?>
     <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        Chart.defaults.color = '#8b949e'; 
-        Chart.defaults.borderColor = 'rgba(139, 148, 158, 0.08)';
-        Chart.defaults.font.family = "'Inter', system-ui, -apple-system, sans-serif";
+    document.addEventListener('DOMContentLoaded', function () {
+        Chart.defaults.color       = '#8b949e';
+        Chart.defaults.borderColor = 'rgba(139,148,158,0.08)';
+        Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
 
-        const dataAC = <?= $chartData1 ?? '{"activos":0,"cerrados":0}' ?>;
-        let originalDataTU = <?= $chartData2 ?? '[]' ?>; // Almacenamos el dataset íntegro
+        const dataAC        = <?= $chartData1 ?? '{"activos":0,"cerrados":0}' ?>;
+        let   originalDataTU = <?= $chartData2 ?? '[]' ?>;
 
-        // 1. Gráfica Doughnut (Activos vs Cerrados)
+        // ── RF_14: Doughnut Activos vs Cerrados ──────────────────────────────
         const ctxE = document.getElementById('chartActivosCerrados');
         if (ctxE) {
             new Chart(ctxE.getContext('2d'), {
                 type: 'doughnut',
                 data: {
-                    labels: ['Activos', 'Cerrados'],
+                    labels: ['En Gestión', 'Cerrados'],
                     datasets: [{
                         data: [dataAC.activos, dataAC.cerrados],
-                        backgroundColor: ['#2f81f7', '#238636'], 
-                        borderColor: '#161b22', 
+                        backgroundColor: ['#2f81f7', '#238636'],
+                        borderColor: '#161b22',
                         borderWidth: 4,
-                        hoverOffset: 6
-                    }]
+                        hoverOffset: 6,
+                    }],
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    cutout: '75%',
-                    plugins: { legend: { position: 'bottom', labels: { padding: 20 } } }
-                }
+                    cutout: '72%',
+                    plugins: {
+                        legend: { position: 'bottom', labels: { padding: 16 } },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => ` ${ctx.parsed} ticket(s)`,
+                            },
+                        },
+                    },
+                },
             });
         }
 
-        // 2. Gráfica Bar (Carga de Trabajo) con instanciación dinámica
-        const ctxT = document.getElementById('chartTicketsUsuario');
+        // ── RF_15: Barra Carga de Trabajo ────────────────────────────────────
+        const ctxT   = document.getElementById('chartTicketsUsuario');
+        const wrapper     = document.getElementById('chartWrapper');
+        const emptyState  = document.getElementById('rf15EmptyState');
+
         if (ctxT) {
+            // RF_15 Flujo alternativo: sin asignaciones
+            const hayDatos = originalDataTU.some(item => item.total > 0);
+            if (!hayDatos && originalDataTU.length > 0) {
+                wrapper.style.display    = 'none';
+                emptyState.style.display = 'block';
+            }
+
             let chartTU = new Chart(ctxT.getContext('2d'), {
                 type: 'bar',
                 data: {
-                    labels: originalDataTU.map(item => item.tecnico),
+                    labels: originalDataTU.map(i => i.tecnico),
                     datasets: [{
-                        label: 'Tickets Activos',
-                        data: originalDataTU.map(item => item.total),
-                        backgroundColor: '#2f81f7',
-                        hoverBackgroundColor: '#388bfd',
+                        label: 'Tickets activos',
+                        data: originalDataTU.map(i => i.total),
+                        backgroundColor: originalDataTU.map(i =>
+                            i.rol === 'Mesa de Ayuda' ? '#7c3aed' : '#2f81f7'
+                        ),
+                        hoverBackgroundColor: originalDataTU.map(i =>
+                            i.rol === 'Mesa de Ayuda' ? '#9333ea' : '#388bfd'
+                        ),
                         borderRadius: 6,
-                        barPercentage: 0.4
-                    }]
+                        barPercentage: 0.5,
+                    }],
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { 
+                    plugins: {
                         legend: { display: false },
                         tooltip: {
                             callbacks: {
-                                // Muestra el rol en el hover de la barra
-                                afterLabel: (ctx) => `Rol: ${originalDataTU[ctx.dataIndex].rol}`
-                            }
-                        }
+                                afterLabel: ctx => `Rol: ${originalDataTU[ctx.dataIndex]?.rol ?? '—'}`,
+                            },
+                        },
                     },
                     scales: {
                         y: { beginAtZero: true, ticks: { stepSize: 1 } },
-                        x: { grid: { display: false } }
-                    }
-                }
+                        x: { grid: { display: false } },
+                    },
+                },
             });
 
-            // 3. Lógica de Filtrado en Tiempo Real (Buscador y Selector)
+            // ── Filtrado en tiempo real ───────────────────────────────────────
             function updateChart() {
                 const nameFilter = document.getElementById('filterName').value.toLowerCase();
                 const roleFilter = document.getElementById('filterRole').value;
 
-                // Filtramos el arreglo original
-                const filteredData = originalDataTU.filter(item => {
+                const filtered = originalDataTU.filter(item => {
                     const matchName = item.tecnico.toLowerCase().includes(nameFilter);
                     const matchRole = roleFilter === '' || item.rol === roleFilter;
                     return matchName && matchRole;
                 });
 
-                // Actualizamos los datos del objeto Chart y re-dibujamos
-                chartTU.data.labels = filteredData.map(i => i.tecnico);
-                chartTU.data.datasets[0].data = filteredData.map(i => i.total);
-                // Actualizar tooltip reference
-                chartTU.options.plugins.tooltip.callbacks.afterLabel = (ctx) => `Rol: ${filteredData[ctx.dataIndex].rol}`;
-                
+                // RF_15 alternativo: mostrar/ocultar empty state según resultado
+                const sinCarga = filtered.every(i => i.total === 0);
+                if (filtered.length === 0 || sinCarga) {
+                    wrapper.style.display    = 'none';
+                    emptyState.style.display = 'block';
+                } else {
+                    wrapper.style.display    = '';
+                    emptyState.style.display = 'none';
+                }
+
+                chartTU.data.labels                    = filtered.map(i => i.tecnico);
+                chartTU.data.datasets[0].data          = filtered.map(i => i.total);
+                chartTU.data.datasets[0].backgroundColor = filtered.map(i =>
+                    i.rol === 'Mesa de Ayuda' ? '#7c3aed' : '#2f81f7'
+                );
+                chartTU.data.datasets[0].hoverBackgroundColor = filtered.map(i =>
+                    i.rol === 'Mesa de Ayuda' ? '#9333ea' : '#388bfd'
+                );
+                chartTU.options.plugins.tooltip.callbacks.afterLabel =
+                    ctx => `Rol: ${filtered[ctx.dataIndex]?.rol ?? '—'}`;
+
                 chartTU.update();
             }
 
-            // Escuchadores de eventos
-            document.getElementById('filterName').addEventListener('input', updateChart);
+            document.getElementById('filterName').addEventListener('input',  updateChart);
             document.getElementById('filterRole').addEventListener('change', updateChart);
         }
     });
     </script>
-<?php 
-    $extraJs = ob_get_clean(); 
-endif; 
+<?php
+    $extraJs = ob_get_clean();
+endif;
 ?>
+
 <?php require BASE_PATH . '/app/views/layouts/footer.php'; ?>

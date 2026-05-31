@@ -1,10 +1,10 @@
 <?php
 /**
  * Modelo: Usuario
- * 
+ *
  * Gestiona operaciones CRUD de usuarios del sistema,
  * incluyendo autenticación y gestión de roles.
- * 
+ *
  * Sistema de Mesa de Ayuda - Los Bélicos
  */
 class Usuario {
@@ -14,9 +14,10 @@ class Usuario {
         $this->db = Database::getInstance()->getConnection();
     }
 
-    /**
-     * Busca un usuario por su clave de acceso para autenticación.
-     */
+    // ══════════════════════════════════════════════════════════════════════
+    //  AUTENTICACIÓN
+    // ══════════════════════════════════════════════════════════════════════
+
     public function buscarPorClave(string $claveAcceso): array|false {
         $stmt = $this->db->prepare(
             "SELECT u.id, u.clave_acceso, u.nombre_completo, u.password_hash,
@@ -31,9 +32,6 @@ class Usuario {
         return $stmt->fetch();
     }
 
-    /**
-     * Busca usuario por correo institucional.
-     */
     public function buscarPorCorreo(string $correo): array|false {
         $stmt = $this->db->prepare(
             "SELECT u.*, r.nombre_rol
@@ -46,9 +44,13 @@ class Usuario {
         return $stmt->fetch();
     }
 
+    // ══════════════════════════════════════════════════════════════════════
+    //  RF_13 — CATÁLOGO DE USUARIOS
+    // ══════════════════════════════════════════════════════════════════════
+
     /**
-     * Obtiene todos los usuarios con su rol.
-     * Filtro opcional por rol.
+     * Obtiene todos los usuarios con filtros opcionales.
+     * Soporta: nombre (LIKE), id_rol, estado (activo/inactivo).
      */
     public function obtenerTodos(array $filtros = []): array {
         $sql = "SELECT u.id, u.clave_acceso, u.nombre_completo,
@@ -69,16 +71,18 @@ class Usuario {
             $params[] = '%' . $filtros['nombre'] . '%';
         }
 
-        $sql .= " ORDER BY u.nombre_completo";
+        if (!empty($filtros['estado']) && in_array($filtros['estado'], ['activo', 'inactivo'])) {
+            $sql .= " AND u.estado = ?";
+            $params[] = $filtros['estado'];
+        }
+
+        $sql .= " ORDER BY u.nombre_completo ASC";
 
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
         return $stmt->fetchAll();
     }
 
-    /**
-     * Obtiene un usuario por ID.
-     */
     public function obtenerPorId(int $id): array|false {
         $stmt = $this->db->prepare(
             "SELECT u.*, r.nombre_rol
@@ -90,9 +94,10 @@ class Usuario {
         return $stmt->fetch();
     }
 
-    /**
-     * Crea un nuevo usuario. La contraseña se hashea con bcrypt.
-     */
+    // ══════════════════════════════════════════════════════════════════════
+    //  RF_11 — CREAR USUARIO
+    // ══════════════════════════════════════════════════════════════════════
+
     public function crear(
         string $claveAcceso,
         string $nombreCompleto,
@@ -103,16 +108,18 @@ class Usuario {
         $hash = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
 
         $stmt = $this->db->prepare(
-            "INSERT INTO usuarios (clave_acceso, nombre_completo, correo_institucional, password_hash, id_rol, estado)
+            "INSERT INTO usuarios
+                (clave_acceso, nombre_completo, correo_institucional, password_hash, id_rol, estado)
              VALUES (?, ?, ?, ?, ?, 'activo')"
         );
         $stmt->execute([$claveAcceso, $nombreCompleto, $correo, $hash, $idRol]);
         return (int) $this->db->lastInsertId();
     }
 
-    /**
-     * Actualiza datos de un usuario (sin cambiar contraseña).
-     */
+    // ══════════════════════════════════════════════════════════════════════
+    //  RF_12 — EDITAR USUARIO
+    // ══════════════════════════════════════════════════════════════════════
+
     public function actualizar(
         int    $id,
         string $nombreCompleto,
@@ -122,16 +129,15 @@ class Usuario {
     ): bool {
         $stmt = $this->db->prepare(
             "UPDATE usuarios
-             SET nombre_completo = ?, correo_institucional = ?,
-                 id_rol = ?, estado = ?
+             SET nombre_completo      = ?,
+                 correo_institucional = ?,
+                 id_rol               = ?,
+                 estado               = ?
              WHERE id = ?"
         );
         return $stmt->execute([$nombreCompleto, $correo, $idRol, $estado, $id]);
     }
 
-    /**
-     * Cambia la contraseña de un usuario.
-     */
     public function cambiarPassword(int $id, string $nuevaPassword): bool {
         $hash = password_hash($nuevaPassword, PASSWORD_BCRYPT, ['cost' => 12]);
         $stmt = $this->db->prepare(
@@ -140,9 +146,6 @@ class Usuario {
         return $stmt->execute([$hash, $id]);
     }
 
-    /**
-     * Cambia el estado de un usuario (activo/inactivo).
-     */
     public function cambiarEstado(int $id, string $estado): bool {
         $stmt = $this->db->prepare(
             "UPDATE usuarios SET estado = ? WHERE id = ?"
@@ -150,8 +153,13 @@ class Usuario {
         return $stmt->execute([$estado, $id]);
     }
 
+    // ══════════════════════════════════════════════════════════════════════
+    //  VALIDACIONES DE UNICIDAD
+    // ══════════════════════════════════════════════════════════════════════
+
     /**
      * Verifica si una clave de acceso ya existe.
+     * Acepta excludeId para no fallar al editar el mismo usuario.
      */
     public function existeClave(string $clave, int $excludeId = 0): bool {
         $stmt = $this->db->prepare(
@@ -162,15 +170,26 @@ class Usuario {
     }
 
     /**
-     * Retorna todos los roles disponibles.
+     * Verifica si un correo institucional ya existe.
+     * RF_11 pre-condición: el correo institucional no debe estar duplicado.
+     * Acepta excludeId para la edición (RF_12).
      */
+    public function existeCorreo(string $correo, int $excludeId = 0): bool {
+        $stmt = $this->db->prepare(
+            "SELECT COUNT(*) FROM usuarios WHERE correo_institucional = ? AND id != ?"
+        );
+        $stmt->execute([$correo, $excludeId]);
+        return (int) $stmt->fetchColumn() > 0;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  CATÁLOGOS Y ESTADÍSTICAS
+    // ══════════════════════════════════════════════════════════════════════
+
     public function obtenerRoles(): array {
         return $this->db->query("SELECT * FROM roles ORDER BY id")->fetchAll();
     }
 
-    /**
-     * Retorna total de usuarios activos por rol.
-     */
     public function contarPorRol(): array {
         $stmt = $this->db->query(
             "SELECT r.nombre_rol, COUNT(u.id) AS total
